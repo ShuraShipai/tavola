@@ -35,7 +35,7 @@ class SupabaseAuthRepository implements AuthRepository {
       email: email.trim(),
       password: password,
       data: {'full_name': fullName.trim()},
-      emailRedirectTo: Uri.base.origin,
+      emailRedirectTo: _webRedirectUrl,
     );
   }
 
@@ -44,7 +44,7 @@ class SupabaseAuthRepository implements AuthRepository {
 
   @override
   Future<void> sendPasswordReset(String email) => _client.auth
-      .resetPasswordForEmail(email.trim(), redirectTo: Uri.base.origin);
+      .resetPasswordForEmail(email.trim(), redirectTo: _webRedirectUrl);
 
   @override
   Future<RestaurantMembership?> getMembership(String userId) async {
@@ -96,5 +96,10 @@ class SupabaseAuthRepository implements AuthRepository {
           user.userMetadata?['full_name'] as String? ??
           user.userMetadata?['name'] as String?,
     );
+  }
+
+  String? get _webRedirectUrl {
+    final uri = Uri.base;
+    return uri.scheme == 'http' || uri.scheme == 'https' ? uri.origin : null;
   }
 }
