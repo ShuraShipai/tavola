@@ -1,0 +1,40 @@
+abstract final class AppRoutes {
+  static const dashboard = '/';
+  static const orders = '/orders';
+  static const tables = '/tables';
+  static const kitchen = '/kitchen';
+  static const billing = '/billing';
+  static const menu = '/menu';
+  static const customers = '/customers';
+  static const staff = '/staff';
+  static const discounts = '/discounts';
+  static const inventory = '/inventory';
+  static const reservations = '/reservations';
+  static const reports = '/reports';
+  static const branches = '/branches';
+  static const settings = '/settings';
+  static const splash = '/auth/splash';
+  static const welcome = '/auth/welcome';
+  static const login = '/auth/login';
+  static const forgotPassword = '/auth/forgot-password';
+  static const registerRestaurant = '/auth/register-restaurant';
+  static const joinRestaurant = '/auth/join-restaurant';
+  static const staffPin = '/auth/staff-pin';
+}
+
+abstract final class AppRouteName {
+  static const dashboard = 'dashboard';
+  static const orders = 'orders';
+  static const tables = 'tables';
+  static const kitchen = 'kitchen';
+  static const billing = 'billing';
+  static const menu = 'menu';
+  static const customers = 'customers';
+  static const staff = 'staff';
+  static const discounts = 'discounts';
+  static const inventory = 'inventory';
+  static const reservations = 'reservations';
+  static const reports = 'reports';
+  static const branches = 'branches';
+  static const settings = 'settings';
+}

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Tavola Architecture"
+  short_description: "Build Tavola POS consistently"
+  default_prompt: "Use $tavola-architecture to implement this Tavola change."

@@ -33,6 +33,9 @@ migrate_working_dir/
 /build/
 /coverage/
 
+# Supabase CLI project-link metadata (local machine only)
+supabase/.temp/
+
 # Symbolication related
 app.*.symbols
 

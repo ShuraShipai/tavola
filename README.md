@@ -1,6 +1,22 @@
-# tavola
+# Tavola
 
-A new Flutter project.
+Restaurant POS web application built with Flutter, Riverpod, and Supabase.
+
+## Supabase connection
+
+Tavola is configured for the linked Supabase project. You may override its URL
+and publishable key at run time for another project. Do not use a service-role
+or secret key in Flutter.
+
+```bash
+flutter run -d chrome \
+  --dart-define=SUPABASE_URL=https://your-project.supabase.co \
+  --dart-define=SUPABASE_PUBLISHABLE_KEY=your-publishable-key
+```
+
+The checked-in credentials are a Supabase publishable client key, not a
+service-role key. Database access still requires properly configured RLS
+policies.
 
 ## Getting Started
 
