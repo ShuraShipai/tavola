@@ -319,8 +319,19 @@ class _OrderComposerDialogState extends ConsumerState<_OrderComposerDialog> {
         child: branches.when(
           loading: () =>
               const TavolaLoadingIndicator(label: 'Loading order setup…'),
-          error: (_, _) =>
-              const Text('Branches are unavailable. Try again shortly.'),
+          error: (error, _) => Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Order setup could not load: $error'),
+              const SizedBox(height: TavolaSpace.sm),
+              OutlinedButton.icon(
+                onPressed: () => ref.invalidate(restaurantBranchesProvider),
+                icon: const Icon(Icons.refresh),
+                label: const Text('Retry setup'),
+              ),
+            ],
+          ),
           data: (branchData) => menu.when(
             loading: () => const TavolaLoadingIndicator(label: 'Loading menu…'),
             error: (_, _) =>
