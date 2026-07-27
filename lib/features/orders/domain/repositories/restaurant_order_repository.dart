@@ -28,7 +28,6 @@ class OrderItemInput {
 class CreateOrderInput {
   const CreateOrderInput({
     required this.restaurantId,
-    required this.branchId,
     required this.items,
     required this.orderType,
     this.tableId,
@@ -36,7 +35,6 @@ class CreateOrderInput {
     this.notes,
   });
   final String restaurantId;
-  final String branchId;
   final List<OrderItemInput> items;
   final RestaurantOrderType orderType;
   final String? tableId;
@@ -48,7 +46,6 @@ class UpdateOrderInput extends CreateOrderInput {
   const UpdateOrderInput({
     required this.orderId,
     required super.restaurantId,
-    required super.branchId,
     required super.items,
     required super.orderType,
     super.tableId,

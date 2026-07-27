@@ -5,8 +5,12 @@ import '../../../../core/design/tavola_tokens.dart';
 import '../../../../core/widgets/tavola_app_shell.dart';
 import '../../../../core/widgets/tavola_ui_components.dart';
 
-class TableDetailPage extends StatelessWidget {
-  const TableDetailPage({super.key, required this.tableId});
+/// Superseded by the live, provider-backed TableDetailPage in
+/// table_detail_page.dart. Kept private while merge and split states remain
+/// co-located in this handoff-state file.
+// ignore: unused_element, unused_element_parameter
+class _LegacyTableDetailPage extends StatelessWidget {
+  const _LegacyTableDetailPage({required this.tableId});
   final String tableId;
   @override
   Widget build(BuildContext context) => _TableShell(

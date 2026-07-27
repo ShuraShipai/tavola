@@ -23,11 +23,15 @@ import '../features/orders/presentation/pages/orders_page.dart';
 import '../features/orders/presentation/pages/order_states_pages.dart';
 import '../features/reports/presentation/pages/reports_page.dart';
 import '../features/reservations/presentation/pages/reservations_page.dart';
+import '../features/reservations/presentation/pages/reservation_editor_page.dart';
+import '../features/reservations/presentation/pages/reservation_seat_page.dart';
 import '../features/settings/presentation/pages/settings_pages.dart';
 import '../features/staff/presentation/pages/staff_pages.dart';
 import '../features/support/presentation/pages/support_page.dart';
 import '../features/tables/presentation/pages/tables_page.dart';
-import '../features/tables/presentation/pages/table_states_pages.dart';
+import '../features/tables/presentation/pages/table_detail_page.dart';
+import '../features/tables/presentation/pages/table_editor_page.dart';
+import '../features/tables/presentation/pages/table_merge_split_pages.dart';
 
 final _routerRefreshProvider = Provider<_RouterRefresh>((ref) {
   final refresh = _RouterRefresh(ref);
@@ -86,7 +90,8 @@ final tavolaRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoutes.orders,
         name: AppRouteName.orders,
-        builder: (context, state) => const OrdersPage(),
+        builder: (context, state) =>
+            OrdersPage(initialTableId: state.uri.queryParameters['table']),
       ),
       GoRoute(
         path: AppRoutes.tables,
@@ -101,7 +106,8 @@ final tavolaRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoutes.billing,
         name: AppRouteName.billing,
-        builder: (context, state) => const BillingPage(),
+        builder: (context, state) =>
+            BillingPage(orderId: state.uri.queryParameters['order']),
       ),
       GoRoute(
         path: AppRoutes.menu,
@@ -148,6 +154,23 @@ final tavolaRouterProvider = Provider<GoRouter>((ref) {
         path: AppRoutes.reservations,
         name: AppRouteName.reservations,
         builder: (context, state) => const ReservationsPage(),
+      ),
+      GoRoute(
+        path: AppRoutes.reservationNew,
+        name: AppRouteName.reservationNew,
+        builder: (context, state) => const ReservationEditorPage(),
+      ),
+      GoRoute(
+        path: '/reservations/:id/edit',
+        name: AppRouteName.reservationEdit,
+        builder: (context, state) =>
+            ReservationEditorPage(reservationId: state.pathParameters['id']),
+      ),
+      GoRoute(
+        path: '/reservations/:id/seat',
+        name: AppRouteName.reservationSeat,
+        builder: (context, state) =>
+            ReservationSeatPage(reservationId: state.pathParameters['id']!),
       ),
       GoRoute(
         path: AppRoutes.reports,
@@ -227,6 +250,17 @@ final tavolaRouterProvider = Provider<GoRouter>((ref) {
             EditOrderPage(orderId: state.pathParameters['id']!),
       ),
       GoRoute(
+        path: AppRoutes.tableNew,
+        name: AppRouteName.tableNew,
+        builder: (context, state) => const TableEditorPage(),
+      ),
+      GoRoute(
+        path: '/tables/:id/edit',
+        name: 'table-edit',
+        builder: (context, state) =>
+            TableEditorPage(tableId: state.pathParameters['id']),
+      ),
+      GoRoute(
         path: '/tables/detail/:id',
         name: 'table-detail',
         builder: (context, state) =>
@@ -235,12 +269,15 @@ final tavolaRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/tables/merge',
         name: 'merge-tables',
-        builder: (context, state) => const MergeTablesPage(),
+        builder: (context, state) => TableMergePage(
+          primaryTableId: state.uri.queryParameters['primary'],
+        ),
       ),
       GoRoute(
         path: '/tables/split',
         name: 'split-tables',
-        builder: (context, state) => const SplitTablePage(),
+        builder: (context, state) =>
+            TableSplitPage(tableId: state.uri.queryParameters['table']),
       ),
       GoRoute(
         path: '/kitchen/detail/:id',

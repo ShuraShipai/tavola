@@ -5,6 +5,7 @@ import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../data/repositories/supabase_dining_table_repository.dart';
 import '../../domain/entities/dining_table.dart';
 import '../../domain/repositories/dining_table_repository.dart';
+import '../../domain/usecases/create_dining_table.dart';
 import '../../domain/usecases/get_restaurant_tables.dart';
 import '../../domain/usecases/update_dining_table_status.dart';
 import '../../domain/usecases/watch_restaurant_tables.dart';
@@ -17,6 +18,16 @@ final diningTableRepositoryProvider = Provider<DiningTableRepository>((ref) {
 
 final getRestaurantTablesProvider = Provider<GetRestaurantTables>(
   (ref) => GetRestaurantTables(ref.watch(diningTableRepositoryProvider)),
+);
+
+final createDiningTableProvider = Provider<CreateDiningTable>(
+  (ref) => CreateDiningTable(ref.watch(diningTableRepositoryProvider)),
+);
+
+final deleteDiningTableProvider = Provider<Future<void> Function(String)>(
+  (ref) =>
+      (tableId) =>
+          ref.read(diningTableRepositoryProvider).deleteTable(tableId: tableId),
 );
 
 final restaurantTablesProvider = StreamProvider<List<DiningTable>>((
@@ -61,9 +72,22 @@ class TableStatusController extends AsyncNotifier<void> {
         ),
   );
 
+  Future<void> merge({
+    required DiningTable primaryTable,
+    required List<DiningTable> secondaryTables,
+  }) => _run(
+    () => ref
+        .read(diningTableRepositoryProvider)
+        .mergeTables(
+          primaryTableId: primaryTable.id,
+          secondaryTableIds: secondaryTables.map((table) => table.id).toList(),
+        ),
+  );
+
   Future<void> updateStatus({
     required String tableId,
     required DiningTableStatus status,
+    String? currentStatusDetail,
   }) async {
     final membership = await ref.read(currentMembershipProvider.future);
     if (membership == null) {
@@ -78,6 +102,7 @@ class TableStatusController extends AsyncNotifier<void> {
         restaurantId: membership.restaurantId,
         tableId: tableId,
         status: status,
+        currentStatusDetail: currentStatusDetail,
       );
     });
   }

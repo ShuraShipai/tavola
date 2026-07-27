@@ -68,7 +68,6 @@ class SupabaseRestaurantOrderRepository implements RestaurantOrderRepository {
               'create_order',
               params: {
                 'p_restaurant_id': input.restaurantId,
-                'p_branch_id': input.branchId,
                 'p_items': _itemsPayload(input.items),
                 'p_table_id': input.tableId,
                 'p_customer_id': input.customerId,
@@ -88,7 +87,6 @@ class SupabaseRestaurantOrderRepository implements RestaurantOrderRepository {
               params: {
                 'p_order_id': input.orderId,
                 'p_restaurant_id': input.restaurantId,
-                'p_branch_id': input.branchId,
                 'p_items': _itemsPayload(input.items),
                 'p_table_id': input.tableId,
                 'p_customer_id': input.customerId,
@@ -131,7 +129,6 @@ class SupabaseRestaurantOrderRepository implements RestaurantOrderRepository {
   RestaurantOrder _fromRow(Map<String, dynamic> row) => RestaurantOrder(
     id: row['id'] as String,
     restaurantId: row['restaurant_id'] as String,
-    branchId: row['branch_id'] as String,
     orderNumber: row['order_number'] as int,
     status: RestaurantOrderStatus.values.byName(
       _camelCase(row['status'] as String),
@@ -189,7 +186,7 @@ class SupabaseRestaurantOrderRepository implements RestaurantOrderRepository {
 }
 
 const _orderSelect =
-    'id, restaurant_id, branch_id, order_number, status, order_type, '
+    'id, restaurant_id, order_number, status, order_type, '
     'total_amount, created_at, opened_at, table_id, customer_id, notes, '
     'order_items(menu_item_id, item_name, unit_price_amount, quantity, '
     'tax_amount, line_total_amount, notes)';

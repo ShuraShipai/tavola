@@ -2,6 +2,7 @@ abstract final class AppRoutes {
   static const dashboard = '/';
   static const orders = '/orders';
   static const tables = '/tables';
+  static const tableNew = '/tables/new';
   static const kitchen = '/kitchen';
   static const billing = '/billing';
   static const menu = '/menu';
@@ -12,6 +13,7 @@ abstract final class AppRoutes {
   static const discounts = '/discounts';
   static const inventory = '/inventory';
   static const reservations = '/reservations';
+  static const reservationNew = '/reservations/new';
   static const reports = '/reports';
   static const branches = '/branches';
   static const settings = '/settings';
@@ -46,6 +48,7 @@ abstract final class AppRouteName {
   static const dashboard = 'dashboard';
   static const orders = 'orders';
   static const tables = 'tables';
+  static const tableNew = 'table-new';
   static const kitchen = 'kitchen';
   static const billing = 'billing';
   static const menu = 'menu';
@@ -57,6 +60,9 @@ abstract final class AppRouteName {
   static const discounts = 'discounts';
   static const inventory = 'inventory';
   static const reservations = 'reservations';
+  static const reservationNew = 'reservation-new';
+  static const reservationEdit = 'reservation-edit';
+  static const reservationSeat = 'reservation-seat';
   static const reports = 'reports';
   static const branches = 'branches';
   static const settings = 'settings';

@@ -8,8 +8,6 @@ import '../../../../core/widgets/tavola_app_shell.dart';
 import '../../../../core/widgets/tavola_states.dart';
 import '../../../../core/widgets/tavola_ui_components.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
-import '../../../branches/domain/entities/branch.dart';
-import '../../../branches/presentation/providers/branch_providers.dart';
 import '../../../menu/domain/entities/menu_entities.dart';
 import '../../../menu/presentation/providers/menu_providers.dart';
 import '../../../tables/domain/entities/dining_table.dart';
@@ -17,9 +15,13 @@ import '../../../tables/presentation/providers/dining_table_providers.dart';
 import '../../domain/entities/restaurant_order.dart';
 import '../../domain/repositories/restaurant_order_repository.dart';
 import '../providers/restaurant_order_providers.dart';
+import '../widgets/order_status_filter_tabs.dart';
+import '../widgets/order_view_tabs.dart';
 
 class OrdersPage extends ConsumerWidget {
-  const OrdersPage({super.key});
+  const OrdersPage({this.initialTableId, super.key});
+
+  final String? initialTableId;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -28,132 +30,205 @@ class OrdersPage extends ConsumerWidget {
       activeRoute: '/orders',
       child: SingleChildScrollView(
         padding: const EdgeInsets.all(TavolaSpace.lg),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Orders',
-                        style: Theme.of(context).textTheme.headlineLarge,
-                      ),
-                      const SizedBox(height: TavolaSpace.xxs),
-                      Text(
-                        orders.when(
-                          data: (data) =>
-                              '${data.length} orders across this restaurant',
-                          loading: () => 'Loading orders…',
-                          error: (_, _) => 'Unable to load orders',
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                FilledButton.icon(
-                  onPressed: () => showDialog<void>(
-                    context: context,
-                    builder: (_) => const _OrderComposerDialog(),
-                  ),
-                  icon: const Icon(Icons.add_rounded),
-                  label: const Text('New Order'),
-                ),
-              ],
-            ),
-            const SizedBox(height: TavolaSpace.lg),
-            orders.when(
-              loading: () => const Padding(
-                padding: EdgeInsets.all(TavolaSpace.xl),
-                child: TavolaLoadingIndicator(label: 'Loading orders…'),
-              ),
-              error: (error, _) => TavolaErrorState(
-                message: 'We could not load your restaurant orders.',
-                onRetry: () => ref.invalidate(restaurantOrdersProvider),
-              ),
-              data: (data) => data.isEmpty
-                  ? const TavolaEmptyState(
-                      title: 'No orders yet',
-                      message:
-                          'Orders created during service will appear here.',
-                      icon: Icons.receipt_long_outlined,
-                    )
-                  : _OrderList(orders: data),
-            ),
-          ],
+        child: orders.when(
+          loading: () => const Padding(
+            padding: EdgeInsets.all(TavolaSpace.xl),
+            child: TavolaLoadingIndicator(label: 'Loading orders…'),
+          ),
+          error: (error, _) => TavolaErrorState(
+            message: 'We could not load your restaurant orders.',
+            onRetry: () => ref.invalidate(restaurantOrdersProvider),
+          ),
+          data: (data) =>
+              _OrdersWorkspace(orders: data, initialTableId: initialTableId),
         ),
       ),
     );
   }
 }
 
-class _OrderList extends ConsumerWidget {
-  const _OrderList({required this.orders});
+class _OrdersWorkspace extends ConsumerStatefulWidget {
+  const _OrdersWorkspace({required this.orders, this.initialTableId});
+
   final List<RestaurantOrder> orders;
+  final String? initialTableId;
+
+  @override
+  ConsumerState<_OrdersWorkspace> createState() => _OrdersWorkspaceState();
+}
+
+class _OrdersWorkspaceState extends ConsumerState<_OrdersWorkspace> {
+  OrderStatusFilter _filter = OrderStatusFilter.all;
+
+  @override
+  Widget build(BuildContext context) {
+    final tables =
+        ref.watch(restaurantTablesProvider).asData?.value ?? const [];
+    final visibleOrders = widget.orders.where(_matchesFilter).toList()
+      ..sort((a, b) => a.orderNumber.compareTo(b.orderNumber));
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 960),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Active Orders',
+                      style: Theme.of(context).textTheme.headlineLarge,
+                    ),
+                    const SizedBox(height: TavolaSpace.xxs),
+                    Text(
+                      'Orders currently in progress across the restaurant',
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
+                  ],
+                ),
+              ),
+              FilledButton.icon(
+                onPressed: () => showDialog<void>(
+                  context: context,
+                  builder: (_) => _OrderComposerDialog(
+                    initialTableId: widget.initialTableId,
+                  ),
+                ),
+                icon: const Icon(Icons.add_rounded),
+                label: const Text('New Order'),
+              ),
+            ],
+          ),
+          const SizedBox(height: TavolaSpace.lg),
+          const OrderViewTabs(),
+          const SizedBox(height: TavolaSpace.md),
+          OrderStatusFilterTabs(
+            selected: _filter,
+            orders: widget.orders,
+            onSelected: (filter) => setState(() => _filter = filter),
+          ),
+          const SizedBox(height: TavolaSpace.lg),
+          if (visibleOrders.isEmpty)
+            const TavolaEmptyState(
+              title: 'No active orders',
+              message: 'Orders that are in progress will appear here.',
+              icon: Icons.receipt_long_outlined,
+            )
+          else
+            _OrderList(orders: visibleOrders, tables: tables),
+        ],
+      ),
+    );
+  }
+
+  bool _matchesFilter(RestaurantOrder order) =>
+      matchesOrderFilter(_filter, order);
+}
+
+class _OrderList extends ConsumerWidget {
+  const _OrderList({required this.orders, required this.tables});
+  final List<RestaurantOrder> orders;
+  final List<DiningTable> tables;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) => TavolaPanel(
     padding: EdgeInsets.zero,
-    child: SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: DataTable(
-        columns: const [
-          DataColumn(label: Text('Order')),
-          DataColumn(label: Text('Type')),
-          DataColumn(label: Text('Status')),
-          DataColumn(label: Text('Total')),
-          DataColumn(label: Text('Opened')),
-          DataColumn(label: Text('')),
-        ],
-        rows: orders
-            .map(
-              (order) => DataRow(
-                cells: [
-                  DataCell(
-                    Text(
-                      '#ORD-${order.orderNumber}',
-                      style: const TextStyle(fontWeight: FontWeight.w700),
-                    ),
-                  ),
-                  DataCell(Text(order.orderType.label)),
-                  DataCell(
-                    TavolaStatusBadge(
-                      label: order.status.label,
-                      color: statusColor(order.status),
-                    ),
-                  ),
-                  DataCell(
-                    Text(
-                      AppFormatters.currency.format(order.totalAmount / 100),
-                      style: const TextStyle(fontWeight: FontWeight.w600),
-                    ),
-                  ),
-                  DataCell(
-                    Text(
-                      AppFormatters.time.format(
-                        order.openedAt ?? order.createdAt,
+    child: SizedBox(
+      width: double.infinity,
+      height: 358,
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: DataTable(
+          headingTextStyle: Theme.of(context).textTheme.labelLarge?.copyWith(
+            color: TavolaColors.textMuted,
+            fontWeight: FontWeight.w600,
+          ),
+          dataTextStyle: Theme.of(context).textTheme.bodyMedium?.copyWith(
+            color: TavolaColors.textPrimary,
+            fontWeight: FontWeight.w500,
+          ),
+          columns: const [
+            DataColumn(label: Text('Order ID')),
+            DataColumn(label: Text('Table')),
+            DataColumn(label: Text('Type')),
+            DataColumn(label: Text('Items')),
+            DataColumn(label: Text('Status')),
+            DataColumn(label: Text('Amount')),
+            DataColumn(label: Text('Time')),
+            DataColumn(label: Text('')),
+          ],
+          rows: orders
+              .map(
+                (order) => DataRow(
+                  cells: [
+                    DataCell(
+                      Text(
+                        '#ORD-${order.orderNumber}',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w700,
+                          color: TavolaColors.textPrimary,
+                        ),
                       ),
                     ),
-                  ),
-                  DataCell(
-                    TextButton(
-                      onPressed: () => showDialog<void>(
-                        context: context,
-                        builder: (_) => _OrderDetailsDialog(order: order),
+                    DataCell(Text(_tableLabel(order))),
+                    DataCell(Text(order.orderType.label)),
+                    DataCell(Text(_itemsLabel(order))),
+                    DataCell(
+                      TavolaStatusBadge(
+                        label: order.status.label,
+                        color: statusColor(order.status),
                       ),
-                      child: const Text('View'),
                     ),
-                  ),
-                ],
-              ),
-            )
-            .toList(growable: false),
+                    DataCell(
+                      Text(
+                        AppFormatters.currency.format(order.totalAmount / 100),
+                        style: const TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                    DataCell(
+                      Text(
+                        AppFormatters.time.format(
+                          order.openedAt ?? order.createdAt,
+                        ),
+                      ),
+                    ),
+                    DataCell(
+                      TextButton(
+                        style: TextButton.styleFrom(
+                          foregroundColor: TavolaColors.textPrimary,
+                        ),
+                        onPressed: () => showDialog<void>(
+                          context: context,
+                          builder: (_) => _OrderDetailsDialog(order: order),
+                        ),
+                        child: const Text('View'),
+                      ),
+                    ),
+                  ],
+                ),
+              )
+              .toList(growable: false),
+        ),
       ),
     ),
   );
+
+  String _tableLabel(RestaurantOrder order) {
+    if (order.tableId == null) return order.orderType.label;
+    return tables
+            .where((table) => table.id == order.tableId)
+            .firstOrNull
+            ?.label ??
+        'Table';
+  }
+
+  String _itemsLabel(RestaurantOrder order) {
+    final units = order.items.fold<num>(0, (sum, item) => sum + item.quantity);
+    return '${order.items.length} lines · $units units';
+  }
 }
 
 Color statusColor(RestaurantOrderStatus status) => switch (status) {
@@ -277,8 +352,9 @@ List<RestaurantOrderStatus> _nextStatuses(RestaurantOrderStatus status) =>
         .toList();
 
 class _OrderComposerDialog extends ConsumerStatefulWidget {
-  const _OrderComposerDialog({this.order});
+  const _OrderComposerDialog({this.order, this.initialTableId});
   final RestaurantOrder? order;
+  final String? initialTableId;
   @override
   ConsumerState<_OrderComposerDialog> createState() =>
       _OrderComposerDialogState();
@@ -287,7 +363,6 @@ class _OrderComposerDialog extends ConsumerStatefulWidget {
 class _OrderComposerDialogState extends ConsumerState<_OrderComposerDialog> {
   final Map<String, int> _quantities = {};
   RestaurantOrderType _type = RestaurantOrderType.dineIn;
-  String? _branchId;
   String? _tableId;
 
   @override
@@ -296,19 +371,19 @@ class _OrderComposerDialogState extends ConsumerState<_OrderComposerDialog> {
     final order = widget.order;
     if (order != null) {
       _type = order.orderType;
-      _branchId = order.branchId;
       _tableId = order.tableId;
       for (final line in order.items) {
         if (line.menuItemId != null) {
           _quantities[line.menuItemId!] = line.quantity.toInt();
         }
       }
+    } else if (widget.initialTableId != null) {
+      _tableId = widget.initialTableId;
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final branches = ref.watch(restaurantBranchesProvider);
     final tables = ref.watch(restaurantTablesProvider);
     final menu = ref.watch(menuCatalogProvider);
     final mutation = ref.watch(orderMutationControllerProvider);
@@ -316,32 +391,14 @@ class _OrderComposerDialogState extends ConsumerState<_OrderComposerDialog> {
       title: Text(widget.order == null ? 'New order' : 'Edit order'),
       content: SizedBox(
         width: 720,
-        child: branches.when(
-          loading: () =>
-              const TavolaLoadingIndicator(label: 'Loading order setup…'),
-          error: (error, _) => Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('Order setup could not load: $error'),
-              const SizedBox(height: TavolaSpace.sm),
-              OutlinedButton.icon(
-                onPressed: () => ref.invalidate(restaurantBranchesProvider),
-                icon: const Icon(Icons.refresh),
-                label: const Text('Retry setup'),
-              ),
-            ],
-          ),
-          data: (branchData) => menu.when(
-            loading: () => const TavolaLoadingIndicator(label: 'Loading menu…'),
-            error: (_, _) =>
-                const Text('Menu is unavailable. Try again shortly.'),
-            data: (catalog) => _composerContent(
-              branchData,
-              tables.asData?.value ?? const [],
-              catalog,
-              mutation,
-            ),
+        child: menu.when(
+          loading: () => const TavolaLoadingIndicator(label: 'Loading menu…'),
+          error: (_, _) =>
+              const Text('Menu is unavailable. Try again shortly.'),
+          data: (catalog) => _composerContent(
+            tables.asData?.value ?? const [],
+            catalog,
+            mutation,
           ),
         ),
       ),
@@ -359,18 +416,12 @@ class _OrderComposerDialogState extends ConsumerState<_OrderComposerDialog> {
   }
 
   Widget _composerContent(
-    List<Branch> branches,
     List<DiningTable> tables,
     MenuCatalog catalog,
     AsyncValue<void> mutation,
   ) {
-    final branchId = _branchId ?? (branches.isEmpty ? null : branches.first.id);
     final scopedTables = tables
-        .where(
-          (table) =>
-              table.branchId == branchId &&
-              table.status != DiningTableStatus.unavailable,
-        )
+        .where((table) => table.status != DiningTableStatus.unavailable)
         .toList();
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -379,25 +430,6 @@ class _OrderComposerDialogState extends ConsumerState<_OrderComposerDialog> {
           spacing: TavolaSpace.md,
           runSpacing: TavolaSpace.sm,
           children: [
-            SizedBox(
-              width: 210,
-              child: DropdownButtonFormField<String>(
-                initialValue: branchId,
-                decoration: const InputDecoration(labelText: 'Branch'),
-                items: branches
-                    .map<DropdownMenuItem<String>>(
-                      (branch) => DropdownMenuItem(
-                        value: branch.id,
-                        child: Text(branch.name),
-                      ),
-                    )
-                    .toList(),
-                onChanged: (value) => setState(() {
-                  _branchId = value;
-                  _tableId = null;
-                }),
-              ),
-            ),
             SizedBox(
               width: 180,
               child: DropdownButtonFormField<RestaurantOrderType>(
@@ -483,16 +515,6 @@ class _OrderComposerDialogState extends ConsumerState<_OrderComposerDialog> {
   );
 
   Future<void> _submit() async {
-    final loadedBranches = ref.read(restaurantBranchesProvider).asData?.value;
-    final branchId =
-        _branchId ??
-        (loadedBranches == null || loadedBranches.isEmpty
-            ? null
-            : loadedBranches.first.id);
-    if (branchId == null) {
-      _showValidation('Create or activate a branch before opening an order.');
-      return;
-    }
     final membership = await ref.read(currentMembershipProvider.future);
     if (membership == null) {
       _showValidation('Select a restaurant before opening an order.');
@@ -521,7 +543,6 @@ class _OrderComposerDialogState extends ConsumerState<_OrderComposerDialog> {
             UpdateOrderInput(
               orderId: order.id,
               restaurantId: membership.restaurantId,
-              branchId: branchId,
               orderType: _type,
               tableId: tableId,
               items: items,
@@ -533,7 +554,6 @@ class _OrderComposerDialogState extends ConsumerState<_OrderComposerDialog> {
           .create(
             CreateOrderInput(
               restaurantId: membership.restaurantId,
-              branchId: branchId,
               orderType: _type,
               tableId: tableId,
               items: items,

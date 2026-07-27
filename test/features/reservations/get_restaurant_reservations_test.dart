@@ -15,7 +15,10 @@ void main() {
 class _Fake implements ReservationRepository {
   String? restaurantId;
   @override
-  Future<List<Reservation>> getReservations(String id) async {
+  Future<List<Reservation>> getReservations(
+    String id, {
+    ReservationQuery? query,
+  }) async {
     restaurantId = id;
     return [
       Reservation(
@@ -36,7 +39,7 @@ class _Fake implements ReservationRepository {
   Future<void> saveReservation({
     required String restaurantId,
     String? id,
-    required String branchId,
+    required String? branchId,
     String? customerId,
     String? tableId,
     required String guestName,
@@ -44,7 +47,30 @@ class _Fake implements ReservationRepository {
     required int partySize,
     required DateTime reservedFor,
     String? notes,
+    int durationMinutes = 90,
+    bool sendConfirmationSms = true,
   }) async {}
+  @override
+  Future<List<ReservationTableCandidate>> getEligibleTables({
+    required String restaurantId,
+    required String branchId,
+    required DateTime reservedFor,
+    required int partySize,
+    int durationMinutes = 90,
+    String? excludeReservationId,
+  }) async => const [];
+  @override
+  Future<void> assignTable({
+    required String reservationId,
+    required String tableId,
+  }) async {}
+  @override
+  Future<void> seatReservation({
+    required String reservationId,
+    String? tableId,
+  }) async {}
+  @override
+  Future<void> cancelReservation({required String reservationId}) async {}
   @override
   Future<void> transition({
     required String reservationId,

@@ -24,7 +24,6 @@ class _FakeRestaurantOrderRepository implements RestaurantOrderRepository {
       RestaurantOrder(
         id: 'order-1',
         restaurantId: restaurantId,
-        branchId: 'branch-1',
         orderNumber: 1042,
         status: RestaurantOrderStatus.preparing,
         orderType: RestaurantOrderType.dineIn,

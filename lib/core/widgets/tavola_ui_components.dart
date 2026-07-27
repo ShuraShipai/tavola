@@ -10,6 +10,7 @@ class TavolaMetricCard extends StatelessWidget {
     required this.icon,
     required this.tone,
     required this.detail,
+    this.onTap,
     super.key,
   });
 
@@ -18,36 +19,41 @@ class TavolaMetricCard extends StatelessWidget {
   final IconData icon;
   final Color tone;
   final String detail;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) => Card(
-    child: Padding(
-      padding: const EdgeInsets.all(TavolaSpace.md),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          DecoratedBox(
-            decoration: BoxDecoration(
-              color: tone.withValues(alpha: 0.15),
-              borderRadius: TavolaRadius.medium,
+    child: InkWell(
+      onTap: onTap,
+      borderRadius: TavolaRadius.large,
+      child: Padding(
+        padding: const EdgeInsets.all(TavolaSpace.md),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            DecoratedBox(
+              decoration: BoxDecoration(
+                color: tone.withValues(alpha: 0.15),
+                borderRadius: TavolaRadius.medium,
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(TavolaSpace.xs),
+                child: Icon(icon, color: tone, size: TavolaSize.iconMedium),
+              ),
             ),
-            child: Padding(
-              padding: const EdgeInsets.all(TavolaSpace.xs),
-              child: Icon(icon, color: tone, size: TavolaSize.iconMedium),
+            const Spacer(),
+            Text(label, style: Theme.of(context).textTheme.bodySmall),
+            const SizedBox(height: TavolaSpace.xxs),
+            Text(value, style: Theme.of(context).textTheme.headlineMedium),
+            const SizedBox(height: TavolaSpace.xxs),
+            Text(
+              detail,
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(color: TavolaColors.textMuted),
             ),
-          ),
-          const Spacer(),
-          Text(label, style: Theme.of(context).textTheme.bodySmall),
-          const SizedBox(height: TavolaSpace.xxs),
-          Text(value, style: Theme.of(context).textTheme.headlineMedium),
-          const SizedBox(height: TavolaSpace.xxs),
-          Text(
-            detail,
-            style: Theme.of(
-              context,
-            ).textTheme.bodySmall?.copyWith(color: TavolaColors.textMuted),
-          ),
-        ],
+          ],
+        ),
       ),
     ),
   );

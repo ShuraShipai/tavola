@@ -9,9 +9,11 @@ class UpdateDiningTableStatus {
     required String restaurantId,
     required String tableId,
     required DiningTableStatus status,
+    String? currentStatusDetail,
   }) => _repository.updateStatus(
     restaurantId: restaurantId,
     tableId: tableId,
     status: status,
+    currentStatusDetail: currentStatusDetail,
   );
 }

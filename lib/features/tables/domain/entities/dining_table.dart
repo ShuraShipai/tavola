@@ -8,6 +8,7 @@ class DiningTable {
     required this.status,
     required this.sortOrder,
     this.version = 1,
+    this.currentStatusDetail,
   });
 
   final String id;
@@ -18,6 +19,7 @@ class DiningTable {
   final DiningTableStatus status;
   final int sortOrder;
   final int version;
+  final String? currentStatusDetail;
 }
 
 enum DiningTableStatus { available, occupied, reserved, unavailable }

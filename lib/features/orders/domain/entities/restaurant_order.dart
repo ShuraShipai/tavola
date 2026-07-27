@@ -2,7 +2,6 @@ class RestaurantOrder {
   const RestaurantOrder({
     required this.id,
     required this.restaurantId,
-    required this.branchId,
     required this.orderNumber,
     required this.status,
     required this.orderType,
@@ -17,7 +16,6 @@ class RestaurantOrder {
 
   final String id;
   final String restaurantId;
-  final String branchId;
   final int orderNumber;
   final RestaurantOrderStatus status;
   final RestaurantOrderType orderType;

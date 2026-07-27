@@ -12,6 +12,9 @@ import '../../../auth/domain/entities/restaurant_membership.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../domain/entities/menu_entities.dart';
 import '../providers/menu_providers.dart';
+import '../widgets/menu_list_card.dart';
+import '../widgets/menu_filters.dart';
+import '../widgets/menu_tabs.dart';
 
 /// Searchable menu catalogue. Item creation and editing are dedicated routes so
 /// staff never perform destructive actions from a crowded list.
@@ -49,7 +52,7 @@ class _MenuItemsList extends ConsumerStatefulWidget {
 class _MenuItemsListState extends ConsumerState<_MenuItemsList> {
   final _searchController = TextEditingController();
   String? _categoryId;
-  _AvailabilityFilter _availability = _AvailabilityFilter.all;
+  MenuAvailabilityFilter _availability = MenuAvailabilityFilter.all;
   int _page = 1;
   static const _pageSize = 4;
 
@@ -87,12 +90,12 @@ class _MenuItemsListState extends ConsumerState<_MenuItemsList> {
                 onAction: () => _openCreate(catalog),
               ),
               const SizedBox(height: TavolaSpace.lg),
-              _MenuTabs(onCategories: () => context.go('/menu/categories')),
+              MenuTabs(onCategories: () => context.go('/menu/categories')),
               const SizedBox(height: TavolaSpace.lg),
-              _MenuListCard(
+              MenuListCard(
                 child: Column(
                   children: [
-                    _Filters(
+                    MenuFilters(
                       controller: _searchController,
                       categories: catalog.categories,
                       categoryId: _categoryId,
@@ -159,9 +162,9 @@ class _MenuItemsListState extends ConsumerState<_MenuItemsList> {
           final matchesCategory =
               _categoryId == null || item.categoryId == _categoryId;
           final matchesAvailability = switch (_availability) {
-            _AvailabilityFilter.all => true,
-            _AvailabilityFilter.available => item.isAvailable,
-            _AvailabilityFilter.hidden => !item.isAvailable,
+            MenuAvailabilityFilter.all => true,
+            MenuAvailabilityFilter.available => item.isAvailable,
+            MenuAvailabilityFilter.hidden => !item.isAvailable,
           };
           return matchesSearch && matchesCategory && matchesAvailability;
         })
@@ -206,181 +209,6 @@ class _MenuItemsListState extends ConsumerState<_MenuItemsList> {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text(message)));
-}
-
-class _MenuTabs extends StatelessWidget {
-  const _MenuTabs({required this.onCategories});
-
-  final VoidCallback onCategories;
-
-  @override
-  Widget build(BuildContext context) => Row(
-    mainAxisSize: MainAxisSize.min,
-    children: [
-      const _MenuTab(label: 'Menu items', active: true),
-      const SizedBox(width: TavolaSpace.xs),
-      _MenuTab(label: 'Categories', onPressed: onCategories),
-    ],
-  );
-}
-
-class _MenuTab extends StatelessWidget {
-  const _MenuTab({required this.label, this.active = false, this.onPressed});
-
-  final String label;
-  final bool active;
-  final VoidCallback? onPressed;
-
-  @override
-  Widget build(BuildContext context) => SizedBox(
-    height: 40,
-    child: IntrinsicWidth(
-      child: Material(
-        color: active ? TavolaColors.primary : TavolaColors.surface,
-        borderRadius: BorderRadius.circular(999),
-        child: InkWell(
-          onTap: onPressed,
-          borderRadius: BorderRadius.circular(999),
-          child: Container(
-            constraints: const BoxConstraints(minWidth: 112),
-            padding: const EdgeInsets.symmetric(horizontal: TavolaSpace.md),
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(999),
-              border: Border.all(
-                color: active ? TavolaColors.primary : TavolaColors.border,
-              ),
-            ),
-            child: Text(
-              label,
-              style: TextStyle(
-                color: active
-                    ? TavolaColors.textInverse
-                    : TavolaColors.textSecondary,
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-        ),
-      ),
-    ),
-  );
-}
-
-class _MenuListCard extends StatelessWidget {
-  const _MenuListCard({required this.child});
-
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.all(TavolaSpace.md),
-    decoration: BoxDecoration(
-      color: TavolaColors.surface,
-      border: Border.all(color: TavolaColors.border),
-      borderRadius: TavolaRadius.large,
-      boxShadow: const [
-        BoxShadow(
-          color: TavolaColors.shadow,
-          blurRadius: 3,
-          offset: Offset(0, 1),
-        ),
-      ],
-    ),
-    child: child,
-  );
-}
-
-class _Filters extends StatelessWidget {
-  const _Filters({
-    required this.controller,
-    required this.categories,
-    required this.categoryId,
-    required this.availability,
-    required this.onChanged,
-    required this.onCategoryChanged,
-    required this.onAvailabilityChanged,
-  });
-
-  final TextEditingController controller;
-  final List<MenuCategory> categories;
-  final String? categoryId;
-  final _AvailabilityFilter availability;
-  final VoidCallback onChanged;
-  final ValueChanged<String?> onCategoryChanged;
-  final ValueChanged<_AvailabilityFilter> onAvailabilityChanged;
-
-  @override
-  Widget build(BuildContext context) => Theme(
-    data: Theme.of(context).copyWith(
-      inputDecorationTheme: Theme.of(context).inputDecorationTheme.copyWith(
-        isDense: true,
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: TavolaSpace.md,
-          vertical: 10,
-        ),
-      ),
-    ),
-    child: LayoutBuilder(
-      builder: (context, constraints) {
-        final compact = constraints.maxWidth < 740;
-        final search = TextField(
-          controller: controller,
-          onChanged: (_) => onChanged(),
-          decoration: const InputDecoration(
-            prefixIcon: Icon(Icons.search),
-            hintText: 'Search menu items',
-          ),
-        );
-        final category = DropdownButtonFormField<String?>(
-          initialValue: categoryId,
-          decoration: const InputDecoration(labelText: 'Category'),
-          items: [
-            const DropdownMenuItem(value: null, child: Text('All categories')),
-            ...categories.map(
-              (item) =>
-                  DropdownMenuItem(value: item.id, child: Text(item.name)),
-            ),
-          ],
-          onChanged: onCategoryChanged,
-        );
-        final status = DropdownButtonFormField<_AvailabilityFilter>(
-          initialValue: availability,
-          decoration: const InputDecoration(labelText: 'Status'),
-          items: _AvailabilityFilter.values
-              .map(
-                (value) =>
-                    DropdownMenuItem(value: value, child: Text(value.label)),
-              )
-              .toList(growable: false),
-          onChanged: (value) {
-            if (value != null) onAvailabilityChanged(value);
-          },
-        );
-        if (compact) {
-          return Column(
-            children: [
-              search,
-              const SizedBox(height: TavolaSpace.sm),
-              category,
-              const SizedBox(height: TavolaSpace.sm),
-              status,
-            ],
-          );
-        }
-        return Row(
-          children: [
-            Expanded(flex: 2, child: search),
-            const SizedBox(width: TavolaSpace.sm),
-            Expanded(child: category),
-            const SizedBox(width: TavolaSpace.sm),
-            Expanded(child: status),
-          ],
-        );
-      },
-    ),
-  );
 }
 
 class _MenuItemsTable extends StatelessWidget {
@@ -651,13 +479,4 @@ class _PageButton extends StatelessWidget {
       ),
     ),
   );
-}
-
-enum _AvailabilityFilter {
-  all('All status'),
-  available('Available'),
-  hidden('Unavailable');
-
-  const _AvailabilityFilter(this.label);
-  final String label;
 }

@@ -57,6 +57,9 @@ for each row execute procedure public.issue_paid_order_invoice();
 alter table public.table_merges enable row level security;
 alter table public.table_merge_members enable row level security;
 alter table public.order_invoices enable row level security;
+drop policy if exists "table merges: members read" on public.table_merges;
+drop policy if exists "table merge members: members read" on public.table_merge_members;
+drop policy if exists "invoices: members read" on public.order_invoices;
 create policy "table merges: members read" on public.table_merges for select to authenticated using (public.is_restaurant_member(restaurant_id));
 create policy "table merge members: members read" on public.table_merge_members for select to authenticated using (exists (select 1 from public.table_merges m where m.id = merge_id and public.is_restaurant_member(m.restaurant_id)));
 create policy "invoices: members read" on public.order_invoices for select to authenticated using (public.is_restaurant_member(restaurant_id));
@@ -221,6 +224,7 @@ begin
   insert into public.cash_drawer_movements (restaurant_id, shift_id, movement_type, amount, reason, recorded_by) values (v_shift.restaurant_id, v_shift.id, p_movement_type, p_amount, trim(p_reason), v_actor) returning id into v_id;
   return v_id;
 end;
+
 $$;
 
 revoke all on function public.seat_table(uuid, integer), public.assign_order_table(uuid, uuid, integer), public.merge_tables(uuid, uuid[]), public.split_table_merge(uuid), public.apply_order_discount(uuid, uuid), public.refund_payment(uuid, integer, text), public.open_shift(uuid, uuid, integer), public.close_shift(uuid, integer, text), public.record_cash_movement(uuid, text, integer, text) from public, anon;

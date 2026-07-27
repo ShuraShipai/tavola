@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:tavola/features/tables/domain/entities/dining_table.dart';
 import 'package:tavola/features/tables/domain/repositories/dining_table_repository.dart';
 import 'package:tavola/features/tables/domain/usecases/get_restaurant_tables.dart';
+import 'package:tavola/features/tables/domain/usecases/create_dining_table.dart';
 import 'package:tavola/features/tables/domain/usecases/update_dining_table_status.dart';
 
 void main() {
@@ -26,6 +27,23 @@ void main() {
     expect(repository.updatedTableId, 'table-1');
     expect(repository.updatedStatus, DiningTableStatus.unavailable);
   });
+
+  test('creates a table within the requested restaurant', () async {
+    final repository = _FakeDiningTableRepository();
+
+    await CreateDiningTable(repository)(
+      restaurantId: 'restaurant-a',
+      branchId: 'branch-1',
+      label: 'Table 12',
+      capacity: 6,
+      sortOrder: 12,
+      currentStatusDetail: 'Free',
+    );
+
+    expect(repository.savedRestaurantId, 'restaurant-a');
+    expect(repository.savedLabel, 'Table 12');
+    expect(repository.savedCapacity, 6);
+  });
 }
 
 class _FakeDiningTableRepository implements DiningTableRepository {
@@ -33,6 +51,10 @@ class _FakeDiningTableRepository implements DiningTableRepository {
   String? updatedRestaurantId;
   String? updatedTableId;
   DiningTableStatus? updatedStatus;
+  String? savedRestaurantId;
+  String? savedLabel;
+  int? savedCapacity;
+  String? savedCurrentStatusDetail;
 
   @override
   Future<List<DiningTable>> getTables(String restaurantId) async {
@@ -53,6 +75,25 @@ class _FakeDiningTableRepository implements DiningTableRepository {
   @override
   Stream<List<DiningTable>> watchTables(String restaurantId) =>
       Stream.value(const []);
+
+  @override
+  Future<void> saveTable({
+    required String restaurantId,
+    String? tableId,
+    String? branchId,
+    required String label,
+    required int capacity,
+    required int sortOrder,
+    String? currentStatusDetail,
+  }) async {
+    savedRestaurantId = restaurantId;
+    savedLabel = label;
+    savedCapacity = capacity;
+    savedCurrentStatusDetail = currentStatusDetail;
+  }
+
+  @override
+  Future<void> deleteTable({required String tableId}) async {}
 
   @override
   Future<void> seatTable({
@@ -81,6 +122,7 @@ class _FakeDiningTableRepository implements DiningTableRepository {
     required String restaurantId,
     required String tableId,
     required DiningTableStatus status,
+    String? currentStatusDetail,
   }) async {
     updatedRestaurantId = restaurantId;
     updatedTableId = tableId;

@@ -1,12 +1,15 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../../core/design/tavola_breakpoints.dart';
 import '../../../../core/design/tavola_colors.dart';
 import '../../../../core/design/tavola_tokens.dart';
+import '../../../../core/routing/app_routes.dart';
 import '../../../../core/widgets/tavola_app_shell.dart';
 import '../../../../core/widgets/tavola_states.dart';
-import '../../../../core/widgets/tavola_ui_components.dart';
 import '../../domain/entities/dining_table.dart';
 import '../providers/dining_table_providers.dart';
 
@@ -16,21 +19,6 @@ class TablesPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final tables = ref.watch(restaurantTablesProvider);
-    final statusState = ref.watch(tableStatusControllerProvider);
-    ref.listen<AsyncValue<void>>(tableStatusControllerProvider, (
-      previous,
-      next,
-    ) {
-      if (next.hasError) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Unable to update table status.')),
-        );
-      } else if (previous?.isLoading == true && next.hasValue) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('Table status updated.')));
-      }
-    });
     return TavolaAppShell(
       activeRoute: '/tables',
       child: SingleChildScrollView(
@@ -38,26 +26,12 @@ class TablesPage extends ConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            TavolaPageHeader(
-              title: 'Table Overview',
+            _TablesHeader(
               subtitle: tables.when(
                 data: _tableSubtitle,
                 loading: () => 'Loading dining tables…',
                 error: (_, _) => 'Unable to load dining tables',
               ),
-              actionLabel: 'New Order',
-              actionIcon: Icons.add_rounded,
-            ),
-            const SizedBox(height: TavolaSpace.md),
-            const Wrap(
-              spacing: TavolaSpace.md,
-              runSpacing: TavolaSpace.xs,
-              children: [
-                _Legend(label: 'Free', color: TavolaColors.success),
-                _Legend(label: 'Occupied', color: TavolaColors.accent),
-                _Legend(label: 'Billing', color: TavolaColors.info),
-                _Legend(label: 'Reserved', color: TavolaColors.textMuted),
-              ],
             ),
             const SizedBox(height: TavolaSpace.lg),
             tables.when(
@@ -66,7 +40,20 @@ class TablesPage extends ConsumerWidget {
                 child: TavolaLoadingIndicator(label: 'Loading tables…'),
               ),
               error: (error, _) => TavolaErrorState(
-                message: 'We could not load your dining tables.',
+                message: switch (error) {
+                  TimeoutException() =>
+                    'Tables took too long to load. Check the connection and retry.',
+                  StateError(:final message)
+                      when message.contains('database migration') =>
+                    'Tables needs its database migration before it can load. '
+                        'Run 20260725140000_complete_pos_operations.sql in Supabase SQL Editor.',
+                  StateError(:final message)
+                      when message.contains('editable table-status') =>
+                    'Tables needs the latest editor migration. Run '
+                        '20260728113000_table_editor_workflow.sql in Supabase SQL Editor.',
+                  _ =>
+                    'We could not load your dining tables. Retry to check Supabase access.',
+                },
                 onRetry: () => ref.invalidate(restaurantTablesProvider),
               ),
               data: (data) => data.isEmpty
@@ -86,18 +73,13 @@ class TablesPage extends ConsumerWidget {
                       physics: const NeverScrollableScrollPhysics(),
                       crossAxisSpacing: TavolaSpace.md,
                       mainAxisSpacing: TavolaSpace.md,
-                      childAspectRatio: 1.35,
+                      childAspectRatio: 1.48,
                       children: data
                           .map(
                             (table) => _TableTile(
                               table: table,
-                              isUpdating: statusState.isLoading,
-                              onStatusSelected: (status) => ref
-                                  .read(tableStatusControllerProvider.notifier)
-                                  .updateStatus(
-                                    tableId: table.id,
-                                    status: status,
-                                  ),
+                              onPressed: () =>
+                                  context.go('/tables/detail/${table.id}'),
                             ),
                           )
                           .toList(growable: false),
@@ -117,6 +99,53 @@ class TablesPage extends ConsumerWidget {
         '${count(DiningTableStatus.reserved)} reserved · '
         '${tables.length} tables across all dining areas';
   }
+}
+
+class _TablesHeader extends StatelessWidget {
+  const _TablesHeader({required this.subtitle});
+  final String subtitle;
+
+  @override
+  Widget build(BuildContext context) => Wrap(
+    alignment: WrapAlignment.spaceBetween,
+    crossAxisAlignment: WrapCrossAlignment.center,
+    spacing: TavolaSpace.lg,
+    runSpacing: TavolaSpace.sm,
+    children: [
+      Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Table Overview',
+            style: Theme.of(context).textTheme.headlineLarge,
+          ),
+          const SizedBox(height: TavolaSpace.xxs),
+          Text(subtitle, style: Theme.of(context).textTheme.bodyMedium),
+        ],
+      ),
+      Wrap(
+        alignment: WrapAlignment.end,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        spacing: TavolaSpace.sm,
+        runSpacing: TavolaSpace.xs,
+        children: [
+          OutlinedButton(
+            onPressed: () => context.go(AppRoutes.reservations),
+            child: const Text('Reservations'),
+          ),
+          const _Legend(label: 'Free', color: TavolaColors.success),
+          const _Legend(label: 'Occupied', color: TavolaColors.accent),
+          const _Legend(label: 'Billing', color: TavolaColors.info),
+          const _Legend(label: 'Reserved', color: TavolaColors.textMuted),
+          FilledButton.icon(
+            onPressed: () => context.go(AppRoutes.tableNew),
+            icon: const Icon(Icons.add_rounded),
+            label: const Text('New Table'),
+          ),
+        ],
+      ),
+    ],
+  );
 }
 
 class _Legend extends StatelessWidget {
@@ -142,78 +171,108 @@ class _Legend extends StatelessWidget {
 }
 
 class _TableTile extends StatelessWidget {
-  const _TableTile({
-    required this.table,
-    required this.isUpdating,
-    required this.onStatusSelected,
-  });
+  const _TableTile({required this.table, required this.onPressed});
   final DiningTable table;
-  final bool isUpdating;
-  final ValueChanged<DiningTableStatus> onStatusSelected;
+  final VoidCallback onPressed;
 
-  Color get color => switch (table.status) {
-    DiningTableStatus.available => TavolaColors.success,
-    DiningTableStatus.occupied => TavolaColors.accent,
-    DiningTableStatus.reserved => TavolaColors.textMuted,
-    DiningTableStatus.unavailable => TavolaColors.error,
-  };
+  bool get _isBilling => _statusDetail == 'Billing';
+
+  Color get color {
+    if (_isBilling) return const Color(0xFF1D4ED8);
+    return switch (table.status) {
+      DiningTableStatus.available => TavolaColors.success,
+      DiningTableStatus.occupied => TavolaColors.accent,
+      DiningTableStatus.reserved => TavolaColors.textMuted,
+      DiningTableStatus.unavailable => TavolaColors.error,
+    };
+  }
+
   @override
-  Widget build(BuildContext context) => DecoratedBox(
-    decoration: BoxDecoration(
-      color: color.withValues(alpha: .08),
-      borderRadius: TavolaRadius.medium,
-      border: Border.all(color: color.withValues(alpha: .45)),
-    ),
-    child: Padding(
-      padding: const EdgeInsets.all(TavolaSpace.md),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          CircleAvatar(
-            backgroundColor: color.withValues(alpha: .18),
-            foregroundColor: color,
-            child: const Icon(Icons.table_restaurant_outlined),
+  Widget build(BuildContext context) => Semantics(
+    button: true,
+    label: '${table.label}, ${table.status.label}',
+    child: Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onPressed,
+        borderRadius: TavolaRadius.medium,
+        child: Ink(
+          decoration: BoxDecoration(
+            color: _backgroundColor,
+            borderRadius: TavolaRadius.medium,
+            border: Border.all(color: _borderColor, width: 1.5),
           ),
-          Align(
-            alignment: Alignment.topRight,
-            child: isUpdating
-                ? SizedBox(
-                    width: TavolaSize.iconMedium,
-                    height: TavolaSize.iconMedium,
-                    child: const CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : PopupMenuButton<DiningTableStatus>(
-                    tooltip: 'Change table status',
-                    icon: const Icon(Icons.more_horiz_rounded),
-                    onSelected: onStatusSelected,
-                    itemBuilder: (_) => DiningTableStatus.values
-                        .map(
-                          (status) => PopupMenuItem(
-                            value: status,
-                            enabled: status != table.status,
-                            child: Text(status.label),
-                          ),
-                        )
-                        .toList(growable: false),
+          child: Padding(
+            padding: const EdgeInsets.all(TavolaSpace.md),
+            child: Stack(
+              children: [
+                Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: TavolaSpace.xxl,
+                        height: TavolaSpace.xxl,
+                        decoration: BoxDecoration(
+                          color: color.withValues(alpha: .14),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          Icons.table_restaurant_outlined,
+                          size: TavolaSize.iconMedium,
+                          color: color,
+                        ),
+                      ),
+                      const SizedBox(height: TavolaSpace.sm),
+                      Text(
+                        table.label,
+                        style: Theme.of(context).textTheme.labelLarge,
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        '${table.capacity} seats · $_statusDetail',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          fontSize: 11,
+                          color: TavolaColors.textMuted,
+                        ),
+                      ),
+                    ],
                   ),
-          ),
-          const Spacer(),
-          Text(
-            table.label,
-            style: const TextStyle(fontWeight: FontWeight.w700),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            '${table.capacity} seats · ${table.status.label}',
-            style: const TextStyle(
-              fontSize: 11,
-              color: TavolaColors.textSecondary,
+                ),
+              ],
             ),
           ),
-          const SizedBox(height: TavolaSpace.xs),
-          TavolaStatusBadge(label: table.status.label, color: color),
-        ],
+        ),
       ),
     ),
   );
+
+  Color get _borderColor {
+    if (_isBilling) return const Color(0xFF93C5FD);
+    return switch (table.status) {
+      DiningTableStatus.available => TavolaColors.border,
+      DiningTableStatus.occupied => const Color(0xFFFCD34D),
+      DiningTableStatus.reserved => TavolaColors.border,
+      DiningTableStatus.unavailable => TavolaColors.error.withValues(alpha: .5),
+    };
+  }
+
+  Color get _backgroundColor {
+    if (_isBilling) return const Color(0xFFEFF6FF);
+    return switch (table.status) {
+      DiningTableStatus.available => TavolaColors.surface,
+      DiningTableStatus.occupied => const Color(0xFFFFFBEA),
+      DiningTableStatus.reserved => TavolaColors.background,
+      DiningTableStatus.unavailable => TavolaColors.errorLight,
+    };
+  }
+
+  String get _statusDetail =>
+      table.currentStatusDetail ??
+      switch (table.status) {
+        DiningTableStatus.available => 'Free',
+        DiningTableStatus.occupied => 'Occupied',
+        DiningTableStatus.reserved => 'Reserved',
+        DiningTableStatus.unavailable => 'Unavailable',
+      };
 }

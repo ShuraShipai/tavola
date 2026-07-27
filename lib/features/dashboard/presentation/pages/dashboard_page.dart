@@ -77,6 +77,7 @@ class _DashboardContent extends StatelessWidget {
                   icon: Icons.payments_outlined,
                   tone: TavolaColors.accent,
                   detail: '${snapshot.todayOrderCount} completed orders',
+                  onTap: () => context.go('/orders'),
                 ),
                 TavolaMetricCard(
                   label: 'Orders Today',
@@ -84,6 +85,7 @@ class _DashboardContent extends StatelessWidget {
                   icon: Icons.receipt_long_outlined,
                   tone: TavolaColors.primary,
                   detail: 'Live service total',
+                  onTap: () => context.go('/orders'),
                 ),
                 TavolaMetricCard(
                   label: 'Occupied Tables',
@@ -92,6 +94,7 @@ class _DashboardContent extends StatelessWidget {
                   tone: TavolaColors.info,
                   detail:
                       '${snapshot.availableTables} free · ${snapshot.reservedTables} reserved',
+                  onTap: () => context.go('/tables'),
                 ),
                 TavolaMetricCard(
                   label: 'Avg. Order Value',
@@ -101,6 +104,7 @@ class _DashboardContent extends StatelessWidget {
                   icon: Icons.trending_up_rounded,
                   tone: TavolaColors.success,
                   detail: 'Based on today’s orders',
+                  onTap: () => context.go('/reports'),
                 ),
               ],
             );
@@ -240,37 +244,41 @@ class _TopItems extends StatelessWidget {
           )
         else
           for (final entry in items.indexed)
-            Padding(
-              padding: const EdgeInsets.only(bottom: TavolaSpace.md),
-              child: Row(
-                children: [
-                  CircleAvatar(
-                    radius: 14,
-                    backgroundColor: TavolaColors.accentLight,
-                    child: Text(
-                      '${entry.$1 + 1}',
-                      style: const TextStyle(
-                        fontSize: 11,
-                        color: TavolaColors.accentDark,
-                        fontWeight: FontWeight.w700,
+            InkWell(
+              onTap: () => context.go('/menu'),
+              borderRadius: TavolaRadius.small,
+              child: Padding(
+                padding: const EdgeInsets.only(bottom: TavolaSpace.md),
+                child: Row(
+                  children: [
+                    CircleAvatar(
+                      radius: 14,
+                      backgroundColor: TavolaColors.accentLight,
+                      child: Text(
+                        '${entry.$1 + 1}',
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: TavolaColors.accentDark,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                     ),
-                  ),
-                  const SizedBox(width: TavolaSpace.sm),
-                  Expanded(
-                    child: Text(
-                      entry.$2.name,
-                      style: const TextStyle(fontSize: 13),
+                    const SizedBox(width: TavolaSpace.sm),
+                    Expanded(
+                      child: Text(
+                        entry.$2.name,
+                        style: const TextStyle(fontSize: 13),
+                      ),
                     ),
-                  ),
-                  Text(
-                    '${entry.$2.quantity} sold',
-                    style: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
+                    Text(
+                      '${entry.$2.quantity} sold',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
       ],
@@ -286,8 +294,8 @@ class _RecentOrders extends StatelessWidget {
     padding: EdgeInsets.zero,
     child: Column(
       children: [
-        const Padding(
-          padding: EdgeInsets.all(TavolaSpace.lg),
+        Padding(
+          padding: const EdgeInsets.all(TavolaSpace.lg),
           child: Row(
             children: [
               Expanded(
@@ -309,7 +317,10 @@ class _RecentOrders extends StatelessWidget {
                   ],
                 ),
               ),
-              OutlinedButton(onPressed: null, child: Text('View All Orders')),
+              OutlinedButton(
+                onPressed: () => context.go('/orders'),
+                child: const Text('View All Orders'),
+              ),
             ],
           ),
         ),

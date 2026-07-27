@@ -12,7 +12,9 @@ import '../../domain/entities/bill.dart';
 import '../providers/billing_providers.dart';
 
 class BillingPage extends ConsumerWidget {
-  const BillingPage({super.key});
+  const BillingPage({this.orderId, super.key});
+
+  final String? orderId;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) => TavolaAppShell(
@@ -33,10 +35,15 @@ class BillingPage extends ConsumerWidget {
                     'Served orders will appear here when they are ready for payment.',
               );
             }
-            final bill = bills.firstWhere(
-              (value) => value.status != BillStatus.paid,
-              orElse: () => bills.first,
-            );
+            final bill = orderId == null
+                ? bills.firstWhere(
+                    (value) => value.status != BillStatus.paid,
+                    orElse: () => bills.first,
+                  )
+                : bills.firstWhere(
+                    (value) => value.orderId == orderId,
+                    orElse: () => bills.first,
+                  );
             return SingleChildScrollView(
               padding: const EdgeInsets.all(TavolaSpace.lg),
               child: Column(

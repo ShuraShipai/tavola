@@ -3,6 +3,16 @@ import '../entities/dining_table.dart';
 abstract interface class DiningTableRepository {
   Future<List<DiningTable>> getTables(String restaurantId);
   Stream<List<DiningTable>> watchTables(String restaurantId);
+  Future<void> saveTable({
+    required String restaurantId,
+    String? tableId,
+    String? branchId,
+    required String label,
+    required int capacity,
+    required int sortOrder,
+    String? currentStatusDetail,
+  });
+  Future<void> deleteTable({required String tableId});
   Future<void> seatTable({
     required String tableId,
     required int expectedVersion,
@@ -22,5 +32,6 @@ abstract interface class DiningTableRepository {
     required String restaurantId,
     required String tableId,
     required DiningTableStatus status,
+    String? currentStatusDetail,
   });
 }

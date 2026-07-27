@@ -11,19 +11,81 @@ class SupabaseDiningTableRepository implements DiningTableRepository {
 
   @override
   Future<List<DiningTable>> getTables(String restaurantId) async {
-    final rows = await _client
-        .from('dining_tables')
-        .select(
-          'id, restaurant_id, branch_id, label, capacity, status, sort_order, version',
-        )
-        .eq('restaurant_id', restaurantId)
-        .order('sort_order')
-        .order('label');
-    return (rows as List<dynamic>)
-        .cast<Map<String, dynamic>>()
-        .map(_fromRow)
-        .toList(growable: false);
+    try {
+      final rows = await _client
+          .from('dining_tables')
+          .select(
+            'id, restaurant_id, branch_id, label, capacity, status, sort_order, version, current_status_detail',
+          )
+          .eq('restaurant_id', restaurantId)
+          .order('sort_order')
+          .order('label')
+          .timeout(
+            const Duration(seconds: 8),
+            onTimeout: () => throw TimeoutException(
+              'Dining-table request timed out. Check Supabase connectivity and refresh.',
+            ),
+          );
+      final tables = (rows as List<dynamic>)
+          .cast<Map<String, dynamic>>()
+          .map(_fromRow)
+          .toList(growable: false);
+      tables.sort(
+        (left, right) =>
+            _tableNumber(left.label).compareTo(_tableNumber(right.label)),
+      );
+      return tables;
+    } on PostgrestException catch (error) {
+      if (error.code == '42703') {
+        throw StateError(
+          error.message.contains('current_status_detail')
+              ? 'The editable table-status migration has not been applied. '
+                    'Run 20260728113000_table_editor_workflow.sql in Supabase.'
+              : 'The Tables database migration has not been applied. Run '
+                    '20260725140000_complete_pos_operations.sql in Supabase.',
+        );
+      }
+      rethrow;
+    }
   }
+
+  @override
+  Future<void> saveTable({
+    required String restaurantId,
+    String? tableId,
+    String? branchId,
+    required String label,
+    required int capacity,
+    required int sortOrder,
+    String? currentStatusDetail,
+  }) async {
+    try {
+      await _client.rpc(
+        'save_dining_table',
+        params: {
+          'p_restaurant_id': restaurantId,
+          'p_table_id': tableId,
+          'p_branch_id': branchId,
+          'p_label': label.trim(),
+          'p_capacity': capacity,
+          'p_sort_order': sortOrder,
+          'p_current_status_detail': currentStatusDetail?.trim(),
+        },
+      );
+    } on PostgrestException catch (error) {
+      if (error.code == 'PGRST202') {
+        throw StateError(
+          'The Table Editor migration is outdated. Run '
+          '20260728113000_table_editor_workflow.sql again in Supabase.',
+        );
+      }
+      rethrow;
+    }
+  }
+
+  @override
+  Future<void> deleteTable({required String tableId}) =>
+      _client.rpc('delete_dining_table', params: {'p_table_id': tableId});
 
   @override
   Future<void> seatTable({
@@ -110,10 +172,14 @@ class SupabaseDiningTableRepository implements DiningTableRepository {
     required String restaurantId,
     required String tableId,
     required DiningTableStatus status,
+    String? currentStatusDetail,
   }) async {
     await _client
         .from('dining_tables')
-        .update({'status': status.name})
+        .update({
+          'status': status.name,
+          'current_status_detail': currentStatusDetail ?? status.label,
+        })
         .eq('id', tableId)
         .eq('restaurant_id', restaurantId);
   }
@@ -127,5 +193,11 @@ class SupabaseDiningTableRepository implements DiningTableRepository {
     status: DiningTableStatus.values.byName(row['status'] as String),
     sortOrder: row['sort_order'] as int,
     version: row['version'] as int? ?? 1,
+    currentStatusDetail: row['current_status_detail'] as String?,
   );
+
+  int _tableNumber(String label) {
+    final match = RegExp(r'\d+').firstMatch(label);
+    return match == null ? 1 << 30 : int.parse(match.group(0)!);
+  }
 }

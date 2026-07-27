@@ -99,11 +99,13 @@ class TavolaAppShell extends StatelessWidget {
   const TavolaAppShell({
     required this.activeRoute,
     required this.child,
+    this.topBar,
     super.key,
   });
 
   final String activeRoute;
   final Widget child;
+  final Widget? topBar;
 
   @override
   Widget build(BuildContext context) {
@@ -125,7 +127,7 @@ class TavolaAppShell extends StatelessWidget {
             Expanded(
               child: Column(
                 children: [
-                  _TopBar(showMenu: compact),
+                  topBar ?? _TopBar(showMenu: compact),
                   Expanded(
                     child: ColoredBox(
                       color: Theme.of(context).scaffoldBackgroundColor,

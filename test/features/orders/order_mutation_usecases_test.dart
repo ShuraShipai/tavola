@@ -11,7 +11,6 @@ void main() {
       () => CreateRestaurantOrder(repository)(
         const CreateOrderInput(
           restaurantId: 'restaurant-a',
-          branchId: 'branch-a',
           orderType: RestaurantOrderType.dineIn,
           items: [OrderItemInput(menuItemId: 'item-a', quantity: 1)],
         ),
