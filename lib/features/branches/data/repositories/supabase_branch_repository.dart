@@ -11,9 +11,7 @@ class SupabaseBranchRepository implements BranchRepository {
   Future<List<Branch>> getBranches(String restaurantId) async {
     final rows = await _client
         .from('branches')
-        .select(
-          'id, restaurant_id, name, address, phone, is_active, opens_at, closes_at, timezone',
-        )
+        .select('id, restaurant_id, name, address, phone, is_active')
         .eq('restaurant_id', restaurantId)
         .eq('is_active', true)
         .order('name');
@@ -27,9 +25,9 @@ class SupabaseBranchRepository implements BranchRepository {
             address: row['address'] as String?,
             phone: row['phone'] as String?,
             isActive: row['is_active'] as bool,
-            opensAt: row['opens_at'] as String?,
-            closesAt: row['closes_at'] as String?,
-            timezone: row['timezone'] as String?,
+            opensAt: null,
+            closesAt: null,
+            timezone: null,
           ),
         )
         .toList(growable: false);
@@ -53,9 +51,6 @@ class SupabaseBranchRepository implements BranchRepository {
       'address': address?.trim(),
       'phone': phone?.trim(),
       'is_active': isActive,
-      'opens_at': opensAt,
-      'closes_at': closesAt,
-      'timezone': timezone,
     };
     if (id == null) {
       await _client.from('branches').insert(row);

@@ -63,7 +63,7 @@ class BranchesPage extends ConsumerWidget {
 }
 
 Future<void> _showCreateBranch(BuildContext context, WidgetRef ref) async {
-  final nameController = TextEditingController(text: 'Main Branch');
+  final nameController = TextEditingController();
   final addressController = TextEditingController();
   final phoneController = TextEditingController();
   final formKey = GlobalKey<FormState>();
@@ -126,9 +126,12 @@ Future<void> _showCreateBranch(BuildContext context, WidgetRef ref) async {
                 }
               } catch (error) {
                 if (dialogContext.mounted) {
+                  final message = error.toString().contains('duplicate')
+                      ? 'A branch with this name already exists.'
+                      : error.toString();
                   ScaffoldMessenger.of(
                     dialogContext,
-                  ).showSnackBar(SnackBar(content: Text(error.toString())));
+                  ).showSnackBar(SnackBar(content: Text(message)));
                 }
               }
             },
