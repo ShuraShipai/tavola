@@ -26,7 +26,7 @@ final currentMembershipProvider = FutureProvider<RestaurantMembership?>((
   final user = await ref
       .watch(authUserProvider.future)
       .timeout(
-        const Duration(seconds: 15),
+        const Duration(seconds: 5),
         onTimeout: () => throw TimeoutException(
           'Authentication session lookup timed out. Check the connection.',
         ),
@@ -36,7 +36,7 @@ final currentMembershipProvider = FutureProvider<RestaurantMembership?>((
       .watch(authRepositoryProvider)
       .getMembership(user.id)
       .timeout(
-        const Duration(seconds: 15),
+        const Duration(seconds: 5),
         onTimeout: () => throw TimeoutException(
           'Restaurant membership lookup timed out. Check the connection.',
         ),

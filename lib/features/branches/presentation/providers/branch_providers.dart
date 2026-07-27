@@ -25,7 +25,7 @@ final restaurantBranchesProvider = FutureProvider<List<Branch>>((ref) async {
   return ref
       .watch(getRestaurantBranchesProvider)(membership.restaurantId)
       .timeout(
-        const Duration(seconds: 15),
+        const Duration(seconds: 5),
         onTimeout: () => throw TimeoutException(
           'Branch setup timed out. Check the connection and try again.',
         ),

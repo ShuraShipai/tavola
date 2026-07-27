@@ -15,6 +15,7 @@ class SupabaseBranchRepository implements BranchRepository {
           'id, restaurant_id, name, address, phone, is_active, opens_at, closes_at, timezone',
         )
         .eq('restaurant_id', restaurantId)
+        .eq('is_active', true)
         .order('name');
     return (rows as List<dynamic>)
         .cast<Map<String, dynamic>>()

@@ -6,6 +6,7 @@ import '../../../../core/design/tavola_tokens.dart';
 import '../../../../core/widgets/tavola_app_shell.dart';
 import '../../../../core/widgets/tavola_states.dart';
 import '../../../../core/widgets/tavola_ui_components.dart';
+import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../domain/entities/branch.dart';
 import '../providers/branch_providers.dart';
 
@@ -22,9 +23,12 @@ class BranchesPage extends ConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const TavolaPageHeader(
+            TavolaPageHeader(
               title: 'Branches',
               subtitle: 'Manage restaurant locations and operating status',
+              actionLabel: 'Add branch',
+              actionIcon: Icons.add,
+              onAction: () => _showCreateBranch(context, ref),
             ),
             const SizedBox(height: TavolaSpace.lg),
             branches.when(
@@ -55,6 +59,89 @@ class BranchesPage extends ConsumerWidget {
         ),
       ),
     );
+  }
+}
+
+Future<void> _showCreateBranch(BuildContext context, WidgetRef ref) async {
+  final nameController = TextEditingController(text: 'Main Branch');
+  final addressController = TextEditingController();
+  final phoneController = TextEditingController();
+  final formKey = GlobalKey<FormState>();
+  try {
+    final created = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Add branch'),
+        content: SizedBox(
+          width: 420,
+          child: Form(
+            key: formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextFormField(
+                  controller: nameController,
+                  decoration: const InputDecoration(labelText: 'Branch name'),
+                  validator: (value) => value == null || value.trim().isEmpty
+                      ? 'Enter a branch name'
+                      : null,
+                ),
+                TextFormField(
+                  controller: addressController,
+                  decoration: const InputDecoration(labelText: 'Address'),
+                ),
+                TextFormField(
+                  controller: phoneController,
+                  decoration: const InputDecoration(labelText: 'Phone'),
+                ),
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () async {
+              if (!formKey.currentState!.validate()) return;
+              try {
+                final membership = await ref.read(
+                  currentMembershipProvider.future,
+                );
+                if (membership == null) {
+                  throw StateError('Restaurant membership not found.');
+                }
+                await ref
+                    .read(branchRepositoryProvider)
+                    .saveBranch(
+                      restaurantId: membership.restaurantId,
+                      name: nameController.text,
+                      address: addressController.text,
+                      phone: phoneController.text,
+                    );
+                if (dialogContext.mounted) {
+                  Navigator.pop(dialogContext, true);
+                }
+              } catch (error) {
+                if (dialogContext.mounted) {
+                  ScaffoldMessenger.of(
+                    dialogContext,
+                  ).showSnackBar(SnackBar(content: Text(error.toString())));
+                }
+              }
+            },
+            child: const Text('Create'),
+          ),
+        ],
+      ),
+    );
+    if (created == true) ref.invalidate(restaurantBranchesProvider);
+  } finally {
+    nameController.dispose();
+    addressController.dispose();
+    phoneController.dispose();
   }
 }
 
