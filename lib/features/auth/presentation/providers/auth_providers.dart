@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/supabase/supabase_providers.dart';
@@ -21,9 +23,24 @@ final authUserProvider = StreamProvider<AuthUser?>((ref) {
 final currentMembershipProvider = FutureProvider<RestaurantMembership?>((
   ref,
 ) async {
-  final user = await ref.watch(authUserProvider.future);
+  final user = await ref
+      .watch(authUserProvider.future)
+      .timeout(
+        const Duration(seconds: 15),
+        onTimeout: () => throw TimeoutException(
+          'Authentication session lookup timed out. Check the connection.',
+        ),
+      );
   if (user == null) return null;
-  return ref.watch(authRepositoryProvider).getMembership(user.id);
+  return ref
+      .watch(authRepositoryProvider)
+      .getMembership(user.id)
+      .timeout(
+        const Duration(seconds: 15),
+        onTimeout: () => throw TimeoutException(
+          'Restaurant membership lookup timed out. Check the connection.',
+        ),
+      );
 });
 
 final authControllerProvider = AsyncNotifierProvider<AuthController, void>(
