@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tavola/features/menu/domain/entities/menu_entities.dart';
 import 'package:tavola/features/menu/domain/repositories/menu_repository.dart';
@@ -32,7 +34,10 @@ class _MenuRepository implements MenuRepository {
   }
 
   @override
-  Future<void> deleteCategory(String id) async {}
+  Future<void> deleteCategory(
+    String id, {
+    String? moveItemsToCategoryId,
+  }) async {}
   @override
   Future<void> deleteItem(String id) async {}
   @override
@@ -42,6 +47,7 @@ class _MenuRepository implements MenuRepository {
     required String name,
     int sortOrder = 0,
     bool isActive = true,
+    String? description,
   }) async {}
   @override
   Future<void> saveItem({
@@ -50,7 +56,20 @@ class _MenuRepository implements MenuRepository {
     required String name,
     String? categoryId,
     String? description,
+    String? imagePath,
     required int priceMinor,
     bool isAvailable = true,
+    String? foodType,
+    int taxRateBasisPoints = 0,
+    bool isActive = true,
+    int sortOrder = 0,
+    bool tracksStock = false,
+    bool isChefRecommended = false,
   }) async {}
+  @override
+  Future<String> uploadItemImage({
+    required String restaurantId,
+    required Uint8List bytes,
+    required String extension,
+  }) async => '';
 }

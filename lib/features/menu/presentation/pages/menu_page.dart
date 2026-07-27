@@ -1,17 +1,23 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../../core/design/tavola_colors.dart';
 import '../../../../core/design/tavola_tokens.dart';
+import '../../../../core/formatters/app_formatters.dart';
 import '../../../../core/widgets/tavola_app_shell.dart';
 import '../../../../core/widgets/tavola_states.dart';
 import '../../../../core/widgets/tavola_ui_components.dart';
+import '../../../auth/domain/entities/restaurant_membership.dart';
+import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../domain/entities/menu_entities.dart';
 import '../providers/menu_providers.dart';
 
-/// Tenant-scoped menu catalogue. Editing is introduced in a later workflow phase.
+/// Searchable menu catalogue. Item creation and editing are dedicated routes so
+/// staff never perform destructive actions from a crowded list.
 class MenuPage extends ConsumerWidget {
   const MenuPage({super.key});
+
   @override
   Widget build(BuildContext context, WidgetRef ref) => TavolaAppShell(
     activeRoute: '/menu',
@@ -25,141 +31,633 @@ class MenuPage extends ConsumerWidget {
               message: 'Unable to load the menu.',
               onRetry: () => ref.invalidate(menuCatalogProvider),
             ),
-            data: (catalog) => _MenuContent(catalog: catalog),
+            data: (catalog) => _MenuItemsList(catalog: catalog),
           ),
     ),
   );
 }
 
-class _MenuContent extends StatelessWidget {
-  const _MenuContent({required this.catalog});
+class _MenuItemsList extends ConsumerStatefulWidget {
+  const _MenuItemsList({required this.catalog});
+
   final MenuCatalog catalog;
+
   @override
-  Widget build(BuildContext context) => SingleChildScrollView(
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const TavolaPageHeader(
-          title: 'Menu Management',
-          subtitle: 'Manage categories, items and availability',
-          actionLabel: 'Add Menu Item',
-        ),
-        const SizedBox(height: TavolaSpace.lg),
-        if (catalog.categories.isNotEmpty)
-          Wrap(
-            spacing: TavolaSpace.xs,
-            runSpacing: TavolaSpace.xs,
+  ConsumerState<_MenuItemsList> createState() => _MenuItemsListState();
+}
+
+class _MenuItemsListState extends ConsumerState<_MenuItemsList> {
+  final _searchController = TextEditingController();
+  String? _categoryId;
+  _AvailabilityFilter _availability = _AvailabilityFilter.all;
+  int _page = 1;
+  static const _pageSize = 4;
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final catalog = widget.catalog;
+    final filteredItems = _filteredItems(catalog);
+    final pageCount = filteredItems.isEmpty
+        ? 1
+        : ((filteredItems.length - 1) ~/ _pageSize) + 1;
+    final page = _page.clamp(1, pageCount);
+    final items = filteredItems
+        .skip((page - 1) * _pageSize)
+        .take(_pageSize)
+        .toList(growable: false);
+    return Align(
+      alignment: Alignment.topCenter,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 1120),
+        child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const ChoiceChip(label: Text('All items'), selected: true),
-              ...catalog.categories.map(
-                (category) => ChoiceChip(
-                  label: Text(category.name),
-                  selected: false,
-                  onSelected: (_) {},
+              TavolaPageHeader(
+                title: 'Menu items',
+                subtitle:
+                    '${catalog.items.length} items across ${catalog.categories.length} categories',
+                actionLabel: 'Add Menu Item',
+                onAction: () => _openCreate(catalog),
+              ),
+              const SizedBox(height: TavolaSpace.lg),
+              _MenuTabs(onCategories: () => context.go('/menu/categories')),
+              const SizedBox(height: TavolaSpace.lg),
+              _MenuListCard(
+                child: Column(
+                  children: [
+                    _Filters(
+                      controller: _searchController,
+                      categories: catalog.categories,
+                      categoryId: _categoryId,
+                      availability: _availability,
+                      onChanged: () => setState(() => _page = 1),
+                      onCategoryChanged: (value) => setState(() {
+                        _categoryId = value;
+                        _page = 1;
+                      }),
+                      onAvailabilityChanged: (value) => setState(() {
+                        _availability = value;
+                        _page = 1;
+                      }),
+                    ),
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: TavolaSpace.sm),
+                      child: Divider(height: 1),
+                    ),
+                    if (catalog.items.isEmpty)
+                      const TavolaEmptyState(
+                        title: 'Your menu is empty',
+                        message: 'Create a menu item to start taking orders.',
+                        icon: Icons.restaurant_menu_outlined,
+                      )
+                    else if (items.isEmpty)
+                      const TavolaEmptyState(
+                        title: 'No menu items match these filters',
+                        message:
+                            'Try another search, category, or availability filter.',
+                        icon: Icons.search_off_outlined,
+                      )
+                    else ...[
+                      _MenuItemsTable(
+                        items: items,
+                        catalog: catalog,
+                        onEdit: _openEdit,
+                        minimumRows: _pageSize,
+                      ),
+                      _Pagination(
+                        page: page,
+                        pageCount: pageCount,
+                        itemCount: filteredItems.length,
+                        onPageChanged: (value) => setState(() => _page = value),
+                      ),
+                    ],
+                  ],
                 ),
               ),
             ],
           ),
-        const SizedBox(height: TavolaSpace.md),
-        if (catalog.items.isEmpty)
-          const TavolaEmptyState(
-            title: 'Your menu is empty',
-            message: 'Create categories and menu items to start taking orders.',
-            icon: Icons.restaurant_menu_outlined,
-          )
-        else
-          TavolaPanel(
-            child: LayoutBuilder(
-              builder: (context, box) => GridView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: catalog.items.length,
-                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: box.maxWidth > 800
-                      ? 3
-                      : box.maxWidth > 520
-                      ? 2
-                      : 1,
-                  crossAxisSpacing: TavolaSpace.md,
-                  mainAxisSpacing: TavolaSpace.md,
-                  childAspectRatio: 1.85,
-                ),
-                itemBuilder: (context, index) => _MenuItemCard(
-                  item: catalog.items[index],
-                  categoryName: _categoryName(
-                    catalog,
-                    catalog.items[index].categoryId,
-                  ),
-                ),
+        ),
+      ),
+    );
+  }
+
+  List<MenuItem> _filteredItems(MenuCatalog catalog) {
+    final query = _searchController.text.trim().toLowerCase();
+    return catalog.items
+        .where((item) {
+          final matchesSearch =
+              query.isEmpty ||
+              item.name.toLowerCase().contains(query) ||
+              (item.description?.toLowerCase().contains(query) ?? false);
+          final matchesCategory =
+              _categoryId == null || item.categoryId == _categoryId;
+          final matchesAvailability = switch (_availability) {
+            _AvailabilityFilter.all => true,
+            _AvailabilityFilter.available => item.isAvailable,
+            _AvailabilityFilter.hidden => !item.isAvailable,
+          };
+          return matchesSearch && matchesCategory && matchesAvailability;
+        })
+        .toList(growable: false);
+  }
+
+  Future<void> _openCreate(MenuCatalog catalog) async {
+    if (!await _canManage()) return;
+    if (!mounted) return;
+    if (!catalog.categories.any((category) => category.isActive)) {
+      _showMessage(
+        context,
+        'Create an active category before adding a menu item.',
+      );
+      return;
+    }
+    context.go('/menu/items/new');
+  }
+
+  Future<void> _openEdit(MenuItem item) async {
+    if (!await _canManage()) return;
+    if (!mounted) return;
+    context.go('/menu/items/${item.id}/edit');
+  }
+
+  Future<bool> _canManage() async {
+    final membership = await ref.read(currentMembershipProvider.future);
+    if (!mounted) return false;
+    if (membership == null) {
+      _showMessage(context, 'Select a restaurant before managing menu items.');
+      return false;
+    }
+    if (membership.role != TavolaRole.owner &&
+        membership.role != TavolaRole.manager) {
+      _showMessage(context, 'Only an owner or manager can manage menu items.');
+      return false;
+    }
+    return true;
+  }
+
+  void _showMessage(BuildContext context, String message) =>
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(message)));
+}
+
+class _MenuTabs extends StatelessWidget {
+  const _MenuTabs({required this.onCategories});
+
+  final VoidCallback onCategories;
+
+  @override
+  Widget build(BuildContext context) => Row(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      const _MenuTab(label: 'Menu items', active: true),
+      const SizedBox(width: TavolaSpace.xs),
+      _MenuTab(label: 'Categories', onPressed: onCategories),
+    ],
+  );
+}
+
+class _MenuTab extends StatelessWidget {
+  const _MenuTab({required this.label, this.active = false, this.onPressed});
+
+  final String label;
+  final bool active;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) => SizedBox(
+    height: 40,
+    child: IntrinsicWidth(
+      child: Material(
+        color: active ? TavolaColors.primary : TavolaColors.surface,
+        borderRadius: BorderRadius.circular(999),
+        child: InkWell(
+          onTap: onPressed,
+          borderRadius: BorderRadius.circular(999),
+          child: Container(
+            constraints: const BoxConstraints(minWidth: 112),
+            padding: const EdgeInsets.symmetric(horizontal: TavolaSpace.md),
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(999),
+              border: Border.all(
+                color: active ? TavolaColors.primary : TavolaColors.border,
+              ),
+            ),
+            child: Text(
+              label,
+              style: TextStyle(
+                color: active
+                    ? TavolaColors.textInverse
+                    : TavolaColors.textSecondary,
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
               ),
             ),
           ),
-      ],
+        ),
+      ),
     ),
   );
-  String _categoryName(MenuCatalog catalog, String id) {
+}
+
+class _MenuListCard extends StatelessWidget {
+  const _MenuListCard({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.all(TavolaSpace.md),
+    decoration: BoxDecoration(
+      color: TavolaColors.surface,
+      border: Border.all(color: TavolaColors.border),
+      borderRadius: TavolaRadius.large,
+      boxShadow: const [
+        BoxShadow(
+          color: TavolaColors.shadow,
+          blurRadius: 3,
+          offset: Offset(0, 1),
+        ),
+      ],
+    ),
+    child: child,
+  );
+}
+
+class _Filters extends StatelessWidget {
+  const _Filters({
+    required this.controller,
+    required this.categories,
+    required this.categoryId,
+    required this.availability,
+    required this.onChanged,
+    required this.onCategoryChanged,
+    required this.onAvailabilityChanged,
+  });
+
+  final TextEditingController controller;
+  final List<MenuCategory> categories;
+  final String? categoryId;
+  final _AvailabilityFilter availability;
+  final VoidCallback onChanged;
+  final ValueChanged<String?> onCategoryChanged;
+  final ValueChanged<_AvailabilityFilter> onAvailabilityChanged;
+
+  @override
+  Widget build(BuildContext context) => Theme(
+    data: Theme.of(context).copyWith(
+      inputDecorationTheme: Theme.of(context).inputDecorationTheme.copyWith(
+        isDense: true,
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: TavolaSpace.md,
+          vertical: 10,
+        ),
+      ),
+    ),
+    child: LayoutBuilder(
+      builder: (context, constraints) {
+        final compact = constraints.maxWidth < 740;
+        final search = TextField(
+          controller: controller,
+          onChanged: (_) => onChanged(),
+          decoration: const InputDecoration(
+            prefixIcon: Icon(Icons.search),
+            hintText: 'Search menu items',
+          ),
+        );
+        final category = DropdownButtonFormField<String?>(
+          initialValue: categoryId,
+          decoration: const InputDecoration(labelText: 'Category'),
+          items: [
+            const DropdownMenuItem(value: null, child: Text('All categories')),
+            ...categories.map(
+              (item) =>
+                  DropdownMenuItem(value: item.id, child: Text(item.name)),
+            ),
+          ],
+          onChanged: onCategoryChanged,
+        );
+        final status = DropdownButtonFormField<_AvailabilityFilter>(
+          initialValue: availability,
+          decoration: const InputDecoration(labelText: 'Status'),
+          items: _AvailabilityFilter.values
+              .map(
+                (value) =>
+                    DropdownMenuItem(value: value, child: Text(value.label)),
+              )
+              .toList(growable: false),
+          onChanged: (value) {
+            if (value != null) onAvailabilityChanged(value);
+          },
+        );
+        if (compact) {
+          return Column(
+            children: [
+              search,
+              const SizedBox(height: TavolaSpace.sm),
+              category,
+              const SizedBox(height: TavolaSpace.sm),
+              status,
+            ],
+          );
+        }
+        return Row(
+          children: [
+            Expanded(flex: 2, child: search),
+            const SizedBox(width: TavolaSpace.sm),
+            Expanded(child: category),
+            const SizedBox(width: TavolaSpace.sm),
+            Expanded(child: status),
+          ],
+        );
+      },
+    ),
+  );
+}
+
+class _MenuItemsTable extends StatelessWidget {
+  const _MenuItemsTable({
+    required this.items,
+    required this.catalog,
+    required this.onEdit,
+    required this.minimumRows,
+  });
+
+  final List<MenuItem> items;
+  final MenuCatalog catalog;
+  final ValueChanged<MenuItem> onEdit;
+  final int minimumRows;
+
+  @override
+  Widget build(BuildContext context) => Column(
+    children: [
+      LayoutBuilder(
+        builder: (context, constraints) => SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minWidth: constraints.maxWidth),
+            child: DataTable(
+              headingTextStyle: const TextStyle(
+                color: TavolaColors.textMuted,
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.48,
+              ),
+              dataTextStyle: const TextStyle(
+                color: TavolaColors.textPrimary,
+                fontSize: 14,
+              ),
+              headingRowHeight: 44,
+              dataRowMinHeight: 52,
+              dataRowMaxHeight: 52,
+              horizontalMargin: TavolaSpace.md,
+              columnSpacing: TavolaSpace.xl,
+              dividerThickness: 1,
+              columns: const [
+                DataColumn(label: Text('ITEM')),
+                DataColumn(label: Text('CATEGORY')),
+                DataColumn(label: Text('TYPE')),
+                // The handoff uses a regular left-aligned price column. A
+                // numeric DataColumn right-aligns the value into Availability.
+                DataColumn(label: Text('PRICE')),
+                DataColumn(label: Text('AVAILABILITY')),
+                DataColumn(label: Text('ACTION')),
+              ],
+              rows: items
+                  .map((item) => _row(context, item))
+                  .toList(growable: false),
+            ),
+          ),
+        ),
+      ),
+      if (items.length < minimumRows)
+        SizedBox(height: (minimumRows - items.length) * 52),
+    ],
+  );
+
+  DataRow _row(BuildContext context, MenuItem item) => DataRow(
+    cells: [
+      DataCell(
+        Text(item.name, style: const TextStyle(fontWeight: FontWeight.w600)),
+      ),
+      DataCell(Text(_categoryName(item.categoryId))),
+      DataCell(_FoodTypeBadge(value: item.foodType)),
+      DataCell(Text(AppFormatters.currency.format(item.priceMinor / 100))),
+      DataCell(
+        _TableStatusBadge(
+          label: item.isAvailable ? 'Available' : 'Unavailable',
+          color: item.isAvailable
+              ? TavolaColors.success
+              : TavolaColors.textMuted,
+        ),
+      ),
+      DataCell(
+        OutlinedButton(
+          onPressed: () => onEdit(item),
+          style: OutlinedButton.styleFrom(
+            minimumSize: const Size(58, 34),
+            padding: const EdgeInsets.symmetric(horizontal: TavolaSpace.sm),
+            foregroundColor: TavolaColors.secondary,
+            side: const BorderSide(color: TavolaColors.border),
+          ),
+          child: const Text('Edit'),
+        ),
+      ),
+    ],
+  );
+
+  String _categoryName(String categoryId) {
     for (final category in catalog.categories) {
-      if (category.id == id) return category.name;
+      if (category.id == categoryId) return category.name;
     }
     return 'Uncategorised';
   }
 }
 
-class _MenuItemCard extends StatelessWidget {
-  const _MenuItemCard({required this.item, required this.categoryName});
-  final MenuItem item;
-  final String categoryName;
+class _FoodTypeBadge extends StatelessWidget {
+  const _FoodTypeBadge({required this.value});
+  final String? value;
+
+  @override
+  Widget build(BuildContext context) {
+    final normalized = value?.trim().toLowerCase();
+    if (normalized == null || normalized.isEmpty) return const Text('—');
+    final (label, color) = switch (normalized) {
+      'veg' || 'vegetarian' => ('Veg', TavolaColors.success),
+      'non-veg' ||
+      'nonveg' ||
+      'non vegetarian' => ('Non-veg', TavolaColors.error),
+      'vegan' => ('Vegan', TavolaColors.success),
+      'beverage' => ('Beverage', TavolaColors.info),
+      _ => (value!.trim(), TavolaColors.textMuted),
+    };
+    return _TableStatusBadge(label: label, color: color);
+  }
+}
+
+class _TableStatusBadge extends StatelessWidget {
+  const _TableStatusBadge({required this.label, required this.color});
+
+  final String label;
+  final Color color;
+
   @override
   Widget build(BuildContext context) => DecoratedBox(
     decoration: BoxDecoration(
-      border: Border.all(color: TavolaColors.border),
-      borderRadius: TavolaRadius.medium,
+      color: color.withValues(alpha: 0.14),
+      borderRadius: BorderRadius.circular(999),
     ),
     child: Padding(
-      padding: const EdgeInsets.all(TavolaSpace.md),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      padding: const EdgeInsets.symmetric(
+        horizontal: TavolaSpace.xs,
+        vertical: TavolaSpace.xxs,
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Row(
-            children: [
-              Container(
-                width: 38,
-                height: 38,
-                decoration: BoxDecoration(
-                  color: TavolaColors.accentLight,
-                  borderRadius: TavolaRadius.small,
-                ),
-                child: const Icon(
-                  Icons.restaurant_menu_rounded,
-                  color: TavolaColors.accentDark,
-                ),
-              ),
-              const Spacer(),
-              TavolaStatusBadge(
-                label: item.isAvailable ? 'Available' : 'Hidden',
-                color: item.isAvailable
-                    ? TavolaColors.success
-                    : TavolaColors.textMuted,
-              ),
-            ],
+          Container(
+            width: 5,
+            height: 5,
+            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
           ),
-          const Spacer(),
-          Text(item.name, style: const TextStyle(fontWeight: FontWeight.w700)),
-          const SizedBox(height: 3),
+          const SizedBox(width: TavolaSpace.xxs),
           Text(
-            '$categoryName${item.foodType == null ? '' : ' · ${item.foodType}'}',
-            style: const TextStyle(
-              color: TavolaColors.textSecondary,
+            label,
+            style: TextStyle(
+              color: color,
               fontSize: 12,
+              fontWeight: FontWeight.w700,
             ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            '₹${(item.priceMinor / 100).toStringAsFixed(0)}',
-            style: const TextStyle(fontWeight: FontWeight.w700),
           ),
         ],
       ),
     ),
   );
+}
+
+class _Pagination extends StatelessWidget {
+  const _Pagination({
+    required this.page,
+    required this.pageCount,
+    required this.itemCount,
+    required this.onPageChanged,
+  });
+  final int page;
+  final int pageCount;
+  final int itemCount;
+  final ValueChanged<int> onPageChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final start = itemCount == 0
+        ? 0
+        : ((page - 1) * _MenuItemsListState._pageSize) + 1;
+    final end = (page * _MenuItemsListState._pageSize).clamp(0, itemCount);
+    final pageNumbers = _visiblePageNumbers();
+    return Padding(
+      padding: const EdgeInsets.only(top: TavolaSpace.sm),
+      child: Row(
+        children: [
+          Text(
+            'Showing $start–$end of $itemCount items',
+            style: const TextStyle(
+              fontSize: 13,
+              color: TavolaColors.textSecondary,
+            ),
+          ),
+          const Spacer(),
+          _PageButton(
+            icon: Icons.chevron_left,
+            tooltip: 'Previous page',
+            onPressed: page > 1 ? () => onPageChanged(page - 1) : null,
+          ),
+          ...pageNumbers.map(
+            (pageNumber) => _PageButton(
+              label: '$pageNumber',
+              isActive: pageNumber == page,
+              // Keep the selected page enabled so the outlined-button theme
+              // does not replace its white label with disabled dark text.
+              onPressed: () {
+                if (pageNumber != page) onPageChanged(pageNumber);
+              },
+            ),
+          ),
+          _PageButton(
+            icon: Icons.chevron_right,
+            tooltip: 'Next page',
+            onPressed: page < pageCount ? () => onPageChanged(page + 1) : null,
+          ),
+        ],
+      ),
+    );
+  }
+
+  List<int> _visiblePageNumbers() {
+    if (pageCount <= 3) {
+      return List<int>.generate(pageCount, (index) => index + 1);
+    }
+    final start = (page - 1).clamp(1, pageCount - 2);
+    return List<int>.generate(3, (index) => start + index);
+  }
+}
+
+class _PageButton extends StatelessWidget {
+  const _PageButton({
+    this.label,
+    this.icon,
+    this.tooltip,
+    this.isActive = false,
+    this.onPressed,
+  });
+
+  final String? label;
+  final IconData? icon;
+  final String? tooltip;
+  final bool isActive;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(left: TavolaSpace.xs),
+    child: SizedBox(
+      width: 32,
+      height: 32,
+      child: OutlinedButton(
+        onPressed: onPressed,
+        style: OutlinedButton.styleFrom(
+          padding: EdgeInsets.zero,
+          backgroundColor: isActive
+              ? TavolaColors.primary
+              : TavolaColors.surface,
+          foregroundColor: isActive
+              ? TavolaColors.textInverse
+              : TavolaColors.textSecondary,
+          side: BorderSide(
+            color: isActive ? TavolaColors.primary : TavolaColors.border,
+          ),
+          shape: RoundedRectangleBorder(borderRadius: TavolaRadius.small),
+        ),
+        child: icon == null
+            ? Text(label!, style: const TextStyle(fontWeight: FontWeight.w600))
+            : Icon(icon, size: 18),
+      ),
+    ),
+  );
+}
+
+enum _AvailabilityFilter {
+  all('All status'),
+  available('Available'),
+  hidden('Unavailable');
+
+  const _AvailabilityFilter(this.label);
+  final String label;
 }

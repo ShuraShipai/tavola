@@ -3,7 +3,10 @@
 #
 
 list(APPEND FLUTTER_PLUGIN_LIST
+  desktop_drop
   gtk
+  irondash_engine_context
+  super_native_extensions
   url_launcher_linux
 )
 

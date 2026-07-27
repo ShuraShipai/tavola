@@ -5,6 +5,8 @@ abstract final class AppRoutes {
   static const kitchen = '/kitchen';
   static const billing = '/billing';
   static const menu = '/menu';
+  static const menuNewItem = '/menu/items/new';
+  static const menuCategories = '/menu/categories';
   static const customers = '/customers';
   static const staff = '/staff';
   static const discounts = '/discounts';
@@ -47,6 +49,9 @@ abstract final class AppRouteName {
   static const kitchen = 'kitchen';
   static const billing = 'billing';
   static const menu = 'menu';
+  static const menuNewItem = 'menu-new-item';
+  static const menuEditItem = 'menu-edit-item';
+  static const menuCategories = 'menu-categories';
   static const customers = 'customers';
   static const staff = 'staff';
   static const discounts = 'discounts';

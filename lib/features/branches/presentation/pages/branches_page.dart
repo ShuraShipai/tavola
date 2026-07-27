@@ -87,10 +87,12 @@ Future<void> _showCreateBranch(BuildContext context, WidgetRef ref) async {
                       ? 'Enter a branch name'
                       : null,
                 ),
+                const SizedBox(height: TavolaSpace.sm),
                 TextFormField(
                   controller: addressController,
                   decoration: const InputDecoration(labelText: 'Address'),
                 ),
+                const SizedBox(height: TavolaSpace.sm),
                 TextFormField(
                   controller: phoneController,
                   keyboardType: TextInputType.phone,

@@ -17,6 +17,8 @@ import '../features/inventory/presentation/pages/inventory_page.dart';
 import '../features/kitchen/presentation/pages/kitchen_page.dart';
 import '../features/kitchen/presentation/pages/kitchen_state_pages.dart';
 import '../features/menu/presentation/pages/menu_page.dart';
+import '../features/menu/presentation/pages/menu_categories_page.dart';
+import '../features/menu/presentation/pages/menu_item_editor_page.dart';
 import '../features/orders/presentation/pages/orders_page.dart';
 import '../features/orders/presentation/pages/order_states_pages.dart';
 import '../features/reports/presentation/pages/reports_page.dart';
@@ -105,6 +107,22 @@ final tavolaRouterProvider = Provider<GoRouter>((ref) {
         path: AppRoutes.menu,
         name: AppRouteName.menu,
         builder: (context, state) => const MenuPage(),
+      ),
+      GoRoute(
+        path: AppRoutes.menuNewItem,
+        name: AppRouteName.menuNewItem,
+        builder: (context, state) => const MenuItemEditorPage(),
+      ),
+      GoRoute(
+        path: '/menu/items/:id/edit',
+        name: AppRouteName.menuEditItem,
+        builder: (context, state) =>
+            MenuItemEditorPage(itemId: state.pathParameters['id']),
+      ),
+      GoRoute(
+        path: AppRoutes.menuCategories,
+        name: AppRouteName.menuCategories,
+        builder: (context, state) => const MenuCategoriesPage(),
       ),
       GoRoute(
         path: AppRoutes.customers,
