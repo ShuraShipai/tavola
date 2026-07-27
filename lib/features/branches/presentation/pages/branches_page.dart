@@ -6,6 +6,7 @@ import '../../../../core/design/tavola_tokens.dart';
 import '../../../../core/widgets/tavola_app_shell.dart';
 import '../../../../core/widgets/tavola_states.dart';
 import '../../../../core/widgets/tavola_ui_components.dart';
+import '../../../../core/validation/phone_validator.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../domain/entities/branch.dart';
 import '../providers/branch_providers.dart';
@@ -92,7 +93,11 @@ Future<void> _showCreateBranch(BuildContext context, WidgetRef ref) async {
                 ),
                 TextFormField(
                   controller: phoneController,
+                  keyboardType: TextInputType.phone,
                   decoration: const InputDecoration(labelText: 'Phone'),
+                  validator: (value) => value == null || value.trim().isEmpty
+                      ? null
+                      : validateIndianPhone(value),
                 ),
               ],
             ),

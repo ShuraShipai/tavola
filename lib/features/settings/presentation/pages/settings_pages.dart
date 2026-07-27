@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/design/tavola_tokens.dart';
 import '../../../../core/widgets/tavola_app_shell.dart';
 import '../../../../core/widgets/tavola_ui_components.dart';
+import '../../../../core/validation/phone_validator.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
 
 class SettingsPage extends StatelessWidget {
@@ -205,6 +206,7 @@ class _MyProfilePageState extends ConsumerState<MyProfilePage> {
                 TextFormField(
                   controller: _phone,
                   keyboardType: TextInputType.phone,
+                  validator: validateIndianPhone,
                   decoration: const InputDecoration(labelText: 'Phone'),
                 ),
                 const SizedBox(height: 20),

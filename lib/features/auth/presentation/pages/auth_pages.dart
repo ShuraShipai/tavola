@@ -6,6 +6,7 @@ import '../../../../core/design/tavola_breakpoints.dart';
 import '../../../../core/design/tavola_colors.dart';
 import '../../../../core/design/tavola_tokens.dart';
 import '../../../../core/routing/app_routes.dart';
+import '../../../../core/validation/phone_validator.dart';
 import '../../domain/entities/restaurant_membership.dart';
 import '../providers/auth_providers.dart';
 
@@ -415,6 +416,7 @@ class _RegisterRestaurantPageState
                 hint: '+91 98765 43210',
                 icon: Icons.phone_outlined,
                 keyboardType: TextInputType.phone,
+                validator: validateIndianPhone,
               ),
             ],
             if (!creatingRestaurant) ...[
@@ -440,6 +442,7 @@ class _RegisterRestaurantPageState
                   hint: '+91 98765 43210',
                   icon: Icons.phone_outlined,
                   keyboardType: TextInputType.phone,
+                  validator: validateIndianPhone,
                 ),
               ),
               const SizedBox(height: TavolaSpace.md),

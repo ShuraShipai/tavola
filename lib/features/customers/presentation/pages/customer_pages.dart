@@ -4,6 +4,7 @@ import '../../../../core/design/tavola_tokens.dart';
 import '../../../../core/widgets/tavola_app_shell.dart';
 import '../../../../core/widgets/tavola_states.dart';
 import '../../../../core/widgets/tavola_ui_components.dart';
+import '../../../../core/validation/phone_validator.dart';
 import '../../domain/entities/customer.dart';
 import '../providers/customer_providers.dart';
 
@@ -317,7 +318,15 @@ class _CustomerFields extends StatelessWidget {
                 'Date of birth',
                 'Anniversary',
               ]
-              .map((x) => TextField(decoration: InputDecoration(labelText: x)))
+              .map(
+                (x) => x == 'Phone number'
+                    ? TextFormField(
+                        keyboardType: TextInputType.phone,
+                        decoration: InputDecoration(labelText: x),
+                        validator: validateIndianPhone,
+                      )
+                    : TextField(decoration: InputDecoration(labelText: x)),
+              )
               .toList(),
     ),
   );
