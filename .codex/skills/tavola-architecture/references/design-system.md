@@ -1,4 +1,4 @@
-# Tavola Design System
+(# Tavola Design System
 
 Use `../tavola-design/Restaurant billing system .html` from the Tavola repository root as the source design handoff. It is a static prototype for a staff-facing restaurant POS and should guide visual fidelity, not application structure.
 

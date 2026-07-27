@@ -10,12 +10,25 @@ abstract interface class AuthRepository {
     required String email,
     required String password,
     required String fullName,
+    String? restaurantType,
+    String? phone,
   });
   Future<void> signOut();
+  Future<void> updateProfile({required String fullName, String? phone});
   Future<void> sendPasswordReset(String email);
   Future<RestaurantMembership?> getMembership(String userId);
   Future<void> createRestaurant({
     required String name,
     required String timezone,
+    String? restaurantType,
+    String? phone,
+  });
+  Future<void> redeemRestaurantInvitation({
+    required String restaurantCode,
+    required String inviteCode,
+  });
+  Future<bool> verifyStaffPin({
+    required String restaurantId,
+    required String pin,
   });
 }

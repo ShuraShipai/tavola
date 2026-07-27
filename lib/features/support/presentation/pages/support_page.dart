@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/design/tavola_colors.dart';
 import '../../../../core/design/tavola_tokens.dart';
 import '../../../../core/widgets/tavola_app_shell.dart';
 import '../../../../core/widgets/tavola_ui_components.dart';
+import '../../../auth/presentation/providers/auth_providers.dart';
 
 /// Static help guides, support chat and system-health states from screens 118–120.
 class SupportPage extends StatelessWidget {
@@ -122,73 +124,81 @@ class _Guide extends StatelessWidget {
   );
 }
 
-class _Chat extends StatelessWidget {
+class _Chat extends ConsumerWidget {
   const _Chat();
   @override
-  Widget build(BuildContext context) => TavolaPanel(
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            const Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Tavola Support',
-                  style: TextStyle(fontWeight: FontWeight.w700, fontSize: 18),
-                ),
-                Text(
-                  'Typical response time under 3 minutes',
-                  style: TextStyle(
-                    color: TavolaColors.textSecondary,
-                    fontSize: 12,
+  Widget build(BuildContext context, WidgetRef ref) {
+    final user = ref.watch(authUserProvider).dataOrNull;
+    final membership = ref.watch(currentMembershipProvider).dataOrNull;
+    final name = user?.fullName?.trim().isNotEmpty == true
+        ? user!.fullName!.trim().split(RegExp(r'\s+')).first
+        : user?.email ?? 'there';
+    final restaurant = membership?.restaurantName ?? 'your restaurant';
+    return TavolaPanel(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Tavola Support',
+                    style: TextStyle(fontWeight: FontWeight.w700, fontSize: 18),
                   ),
-                ),
-              ],
-            ),
-            const Spacer(),
-            TavolaStatusBadge(label: 'Online', color: TavolaColors.success),
-          ],
-        ),
-        const SizedBox(height: 18),
-        const _Message(
-          'Support · Priya',
-          'Hello Rahul! How can I help with La Rosetta Café today?',
-          false,
-        ),
-        const _Message(
-          'You',
-          'I need help reconciling the cash drawer before daily closing.',
-          true,
-        ),
-        const SizedBox(height: 10),
-        Container(
-          padding: const EdgeInsets.all(10),
-          decoration: BoxDecoration(
-            color: TavolaColors.infoLight,
-            borderRadius: TavolaRadius.small,
-          ),
-          child: const Text(
-            'Do not share customer payment details or staff PINs in chat.',
-            style: TextStyle(fontSize: 12, color: TavolaColors.info),
-          ),
-        ),
-        const SizedBox(height: 14),
-        Row(
-          children: [
-            const Expanded(
-              child: TextField(
-                decoration: InputDecoration(hintText: 'Write a message…'),
+                  Text(
+                    'Typical response time under 3 minutes',
+                    style: TextStyle(
+                      color: TavolaColors.textSecondary,
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
               ),
+              const Spacer(),
+              TavolaStatusBadge(label: 'Online', color: TavolaColors.success),
+            ],
+          ),
+          const SizedBox(height: 18),
+          _Message(
+            'Support · Priya',
+            'Hello $name! How can I help with $restaurant today?',
+            false,
+          ),
+          const _Message(
+            'You',
+            'I need help reconciling the cash drawer before daily closing.',
+            true,
+          ),
+          const SizedBox(height: 10),
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: TavolaColors.infoLight,
+              borderRadius: TavolaRadius.small,
             ),
-            const SizedBox(width: 8),
-            FilledButton(onPressed: () {}, child: const Text('Send')),
-          ],
-        ),
-      ],
-    ),
-  );
+            child: const Text(
+              'Do not share customer payment details or staff PINs in chat.',
+              style: TextStyle(fontSize: 12, color: TavolaColors.info),
+            ),
+          ),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              const Expanded(
+                child: TextField(
+                  decoration: InputDecoration(hintText: 'Write a message…'),
+                ),
+              ),
+              const SizedBox(width: 8),
+              FilledButton(onPressed: () {}, child: const Text('Send')),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _Message extends StatelessWidget {

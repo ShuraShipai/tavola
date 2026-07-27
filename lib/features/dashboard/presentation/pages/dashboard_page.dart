@@ -1,41 +1,64 @@
 import 'package:flutter/material.dart';
-
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../../../../core/design/tavola_breakpoints.dart';
 import '../../../../core/design/tavola_colors.dart';
 import '../../../../core/design/tavola_tokens.dart';
+import '../../../../core/formatters/app_formatters.dart';
 import '../../../../core/widgets/tavola_app_shell.dart';
+import '../../../../core/widgets/tavola_states.dart';
 import '../../../../core/widgets/tavola_ui_components.dart';
+import '../../domain/entities/dashboard_snapshot.dart';
+import '../providers/dashboard_providers.dart';
 
-class DashboardPage extends StatelessWidget {
+class DashboardPage extends ConsumerWidget {
   const DashboardPage({super.key});
-
   @override
-  Widget build(BuildContext context) =>
-      const TavolaAppShell(activeRoute: '/', child: _DashboardContent());
+  Widget build(BuildContext context, WidgetRef ref) => TavolaAppShell(
+    activeRoute: '/',
+    child: Padding(
+      padding: const EdgeInsets.all(TavolaSpace.lg),
+      child: ref
+          .watch(dashboardSnapshotProvider)
+          .when(
+            loading: () => const TavolaLoadingIndicator(
+              label: 'Loading today’s performance…',
+            ),
+            error: (error, _) => TavolaErrorState(
+              message: 'Unable to load the dashboard.',
+              onRetry: () => ref.invalidate(dashboardSnapshotProvider),
+            ),
+            data: (snapshot) => _DashboardContent(
+              snapshot: snapshot,
+              onRefresh: () => ref.invalidate(dashboardSnapshotProvider),
+            ),
+          ),
+    ),
+  );
 }
 
 class _DashboardContent extends StatelessWidget {
-  const _DashboardContent();
-
+  const _DashboardContent({required this.snapshot, required this.onRefresh});
+  final DashboardSnapshot snapshot;
+  final VoidCallback onRefresh;
   @override
   Widget build(BuildContext context) => SingleChildScrollView(
-    padding: const EdgeInsets.all(TavolaSpace.lg),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const TavolaPageHeader(
-          title: 'Good afternoon, Rahul 👋',
-          subtitle:
-              "Here's how La Rosetta Café is doing today, Sunday 19 July 2026.",
-          actionLabel: 'New Order',
-          actionIcon: Icons.add_rounded,
+        TavolaPageHeader(
+          title: 'Today’s Overview',
+          subtitle: 'Live restaurant performance for today',
+          actionLabel: 'Refresh',
+          actionIcon: Icons.refresh_rounded,
+          onAction: onRefresh,
         ),
         const SizedBox(height: TavolaSpace.lg),
         LayoutBuilder(
-          builder: (context, constraints) {
-            final columns = constraints.maxWidth >= TavolaBreakpoints.expanded
+          builder: (context, c) {
+            final columns = c.maxWidth >= TavolaBreakpoints.expanded
                 ? 4
-                : constraints.maxWidth >= TavolaBreakpoints.compact
+                : c.maxWidth >= TavolaBreakpoints.compact
                 ? 2
                 : 1;
             return GridView.count(
@@ -45,34 +68,39 @@ class _DashboardContent extends StatelessWidget {
               crossAxisSpacing: TavolaSpace.md,
               mainAxisSpacing: TavolaSpace.md,
               childAspectRatio: 1.55,
-              children: const [
+              children: [
                 TavolaMetricCard(
-                  label: "Today's Sales",
-                  value: '₹48,250',
+                  label: 'Today’s Sales',
+                  value: AppFormatters.currency.format(
+                    snapshot.todaySalesAmount / 100,
+                  ),
                   icon: Icons.payments_outlined,
                   tone: TavolaColors.accent,
-                  detail: '▲ 12.4% vs yesterday',
+                  detail: '${snapshot.todayOrderCount} completed orders',
                 ),
                 TavolaMetricCard(
                   label: 'Orders Today',
-                  value: '186',
+                  value: '${snapshot.todayOrderCount}',
                   icon: Icons.receipt_long_outlined,
                   tone: TavolaColors.primary,
-                  detail: '▲ 8 more than yesterday',
+                  detail: 'Live service total',
                 ),
                 TavolaMetricCard(
                   label: 'Occupied Tables',
-                  value: '14 / 22',
+                  value: '${snapshot.occupiedTables} / ${snapshot.totalTables}',
                   icon: Icons.table_restaurant_outlined,
                   tone: TavolaColors.info,
-                  detail: '6 free · 2 reserved',
+                  detail:
+                      '${snapshot.availableTables} free · ${snapshot.reservedTables} reserved',
                 ),
                 TavolaMetricCard(
                   label: 'Avg. Order Value',
-                  value: '₹259',
+                  value: AppFormatters.currency.format(
+                    snapshot.averageOrderAmount / 100,
+                  ),
                   icon: Icons.trending_up_rounded,
                   tone: TavolaColors.success,
-                  detail: '▼ 2.1% vs last week',
+                  detail: 'Based on today’s orders',
                 ),
               ],
             );
@@ -80,126 +108,115 @@ class _DashboardContent extends StatelessWidget {
         ),
         const SizedBox(height: TavolaSpace.lg),
         LayoutBuilder(
-          builder: (context, constraints) =>
-              constraints.maxWidth >= TavolaBreakpoints.medium
-              ? const Row(
+          builder: (context, c) => c.maxWidth >= TavolaBreakpoints.medium
+              ? Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Expanded(flex: 2, child: _SalesChart()),
-                    SizedBox(width: TavolaSpace.md),
-                    Expanded(child: _TopItems()),
+                    Expanded(flex: 2, child: _SalesChart(snapshot.weeklySales)),
+                    const SizedBox(width: TavolaSpace.md),
+                    Expanded(child: _TopItems(snapshot.topItems)),
                   ],
                 )
-              : const Column(
+              : Column(
                   children: [
-                    _SalesChart(),
-                    SizedBox(height: TavolaSpace.md),
-                    _TopItems(),
+                    _SalesChart(snapshot.weeklySales),
+                    const SizedBox(height: TavolaSpace.md),
+                    _TopItems(snapshot.topItems),
                   ],
                 ),
         ),
         const SizedBox(height: TavolaSpace.lg),
-        const _RecentOrders(),
+        _RecentOrders(snapshot.recentOrders),
       ],
     ),
   );
 }
 
 class _SalesChart extends StatelessWidget {
-  const _SalesChart();
-
+  const _SalesChart(this.sales);
+  final List<DailySales> sales;
   @override
   Widget build(BuildContext context) => TavolaPanel(
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            const Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Sales This Week',
-                    style: TextStyle(fontWeight: FontWeight.w600),
-                  ),
-                  SizedBox(height: 2),
-                  Text(
-                    'Total revenue by day',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: TavolaColors.textMuted,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            TextButton(onPressed: () {}, child: const Text('Week')),
-            TextButton(onPressed: () {}, child: const Text('Month')),
-          ],
+        const Text(
+          'Sales This Week',
+          style: TextStyle(fontWeight: FontWeight.w600),
+        ),
+        const SizedBox(height: 2),
+        const Text(
+          'Total revenue by day',
+          style: TextStyle(fontSize: 12, color: TavolaColors.textMuted),
         ),
         const SizedBox(height: TavolaSpace.lg),
-        const SizedBox(height: 196, child: _Bars()),
+        SizedBox(height: 196, child: _Bars(sales)),
       ],
     ),
   );
 }
 
 class _Bars extends StatelessWidget {
-  const _Bars();
+  const _Bars(this.sales);
+  final List<DailySales> sales;
 
   @override
   Widget build(BuildContext context) {
-    const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-    const values = [.55, .70, .48, .82, .65, .94, .40];
+    final highest = sales.fold<int>(
+      0,
+      (maximum, sale) => sale.amount > maximum ? sale.amount : maximum,
+    );
     return Row(
       crossAxisAlignment: CrossAxisAlignment.end,
-      children: List.generate(
-        days.length,
-        (index) => Expanded(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: TavolaSpace.xs / 2),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                Expanded(
-                  child: Align(
-                    alignment: Alignment.bottomCenter,
-                    child: FractionallySizedBox(
-                      heightFactor: values[index],
-                      child: DecoratedBox(
-                        decoration: BoxDecoration(
-                          color: index == 6
-                              ? TavolaColors.borderStrong
-                              : TavolaColors.accent,
-                          borderRadius: const BorderRadius.vertical(
-                            top: Radius.circular(6),
+      children: sales
+          .map(
+            (sale) => Expanded(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: TavolaSpace.xs / 2,
+                ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    Expanded(
+                      child: Align(
+                        alignment: Alignment.bottomCenter,
+                        child: FractionallySizedBox(
+                          heightFactor: highest == 0
+                              ? 0
+                              : sale.amount / highest,
+                          child: const DecoratedBox(
+                            decoration: BoxDecoration(
+                              color: TavolaColors.accent,
+                              borderRadius: BorderRadius.vertical(
+                                top: Radius.circular(6),
+                              ),
+                            ),
                           ),
                         ),
                       ),
                     ),
-                  ),
+                    const SizedBox(height: TavolaSpace.xs),
+                    Text(
+                      sale.label,
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: TavolaColors.textMuted,
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: TavolaSpace.xs),
-                Text(
-                  days[index],
-                  style: const TextStyle(
-                    fontSize: 11,
-                    color: TavolaColors.textMuted,
-                  ),
-                ),
-              ],
+              ),
             ),
-          ),
-        ),
-      ),
+          )
+          .toList(),
     );
   }
 }
 
 class _TopItems extends StatelessWidget {
-  const _TopItems();
-
+  const _TopItems(this.items);
+  final List<TopSellingItem> items;
   @override
   Widget build(BuildContext context) => TavolaPanel(
     child: Column(
@@ -215,60 +232,65 @@ class _TopItems extends StatelessWidget {
           style: TextStyle(fontSize: 12, color: TavolaColors.textMuted),
         ),
         const SizedBox(height: TavolaSpace.lg),
-        for (final item in const [
-          ('1', 'Margherita Pizza', '52 sold'),
-          ('2', 'Butter Chicken', '41 sold'),
-          ('3', 'Cold Coffee', '38 sold'),
-          ('4', 'Paneer Tikka', '29 sold'),
-        ])
-          Padding(
-            padding: const EdgeInsets.only(bottom: TavolaSpace.md),
-            child: Row(
-              children: [
-                CircleAvatar(
-                  radius: 14,
-                  backgroundColor: TavolaColors.accentLight,
-                  child: Text(
-                    item.$1,
-                    style: const TextStyle(
-                      fontSize: 11,
-                      color: TavolaColors.accentDark,
-                      fontWeight: FontWeight.w700,
+        if (items.isEmpty)
+          const TavolaEmptyState(
+            title: 'No sales yet',
+            message: 'Top-selling items will appear as orders arrive.',
+            icon: Icons.restaurant_menu_outlined,
+          )
+        else
+          for (final entry in items.indexed)
+            Padding(
+              padding: const EdgeInsets.only(bottom: TavolaSpace.md),
+              child: Row(
+                children: [
+                  CircleAvatar(
+                    radius: 14,
+                    backgroundColor: TavolaColors.accentLight,
+                    child: Text(
+                      '${entry.$1 + 1}',
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: TavolaColors.accentDark,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                   ),
-                ),
-                const SizedBox(width: TavolaSpace.sm),
-                Expanded(
-                  child: Text(item.$2, style: const TextStyle(fontSize: 13)),
-                ),
-                Text(
-                  item.$3,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
+                  const SizedBox(width: TavolaSpace.sm),
+                  Expanded(
+                    child: Text(
+                      entry.$2.name,
+                      style: const TextStyle(fontSize: 13),
+                    ),
                   ),
-                ),
-              ],
+                  Text(
+                    '${entry.$2.quantity} sold',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
       ],
     ),
   );
 }
 
 class _RecentOrders extends StatelessWidget {
-  const _RecentOrders();
-
+  const _RecentOrders(this.orders);
+  final List<DashboardOrder> orders;
   @override
   Widget build(BuildContext context) => TavolaPanel(
     padding: EdgeInsets.zero,
     child: Column(
       children: [
-        Padding(
-          padding: const EdgeInsets.all(TavolaSpace.lg),
+        const Padding(
+          padding: EdgeInsets.all(TavolaSpace.lg),
           child: Row(
             children: [
-              const Expanded(
+              Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -287,75 +309,99 @@ class _RecentOrders extends StatelessWidget {
                   ],
                 ),
               ),
-              OutlinedButton(
-                onPressed: () {},
-                child: const Text('View All Orders'),
-              ),
+              OutlinedButton(onPressed: null, child: Text('View All Orders')),
             ],
           ),
         ),
         const Divider(height: 1),
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: DataTable(
-            headingRowColor: WidgetStatePropertyAll(
-              Theme.of(context).colorScheme.surfaceContainerHighest,
+        if (orders.isEmpty)
+          const SizedBox(
+            height: 200,
+            child: TavolaEmptyState(
+              title: 'No orders yet',
+              message: 'Orders created today will appear here.',
+              icon: Icons.receipt_long_outlined,
             ),
-            columns: const [
-              DataColumn(label: Text('Order ID')),
-              DataColumn(label: Text('Table')),
-              DataColumn(label: Text('Items')),
-              DataColumn(label: Text('Status')),
-              DataColumn(label: Text('Amount')),
-              DataColumn(label: Text('Time')),
-            ],
-            rows: const [
-              DataRow(
-                cells: [
-                  DataCell(Text('#ORD-1042')),
-                  DataCell(Text('Table 5')),
-                  DataCell(Text('Pizza, Cold Coffee ×2')),
-                  DataCell(
-                    TavolaStatusBadge(
-                      label: 'Preparing',
-                      color: TavolaColors.accentDark,
+          )
+        else
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: DataTable(
+              headingRowColor: WidgetStatePropertyAll(
+                Theme.of(context).colorScheme.surfaceContainerHighest,
+              ),
+              columns: const [
+                DataColumn(label: Text('Order ID')),
+                DataColumn(label: Text('Table')),
+                DataColumn(label: Text('Items')),
+                DataColumn(label: Text('Status')),
+                DataColumn(label: Text('Amount')),
+                DataColumn(label: Text('Time')),
+              ],
+              rows: orders
+                  .map(
+                    (order) => DataRow(
+                      onSelectChanged: (_) =>
+                          context.go('/orders/detail/${order.id}'),
+                      cells: [
+                        DataCell(Text('#ORD-${order.number}')),
+                        DataCell(
+                          Text(order.tableLabel ?? _orderType(order.orderType)),
+                        ),
+                        DataCell(
+                          SizedBox(
+                            width: 180,
+                            child: Text(
+                              order.itemSummary.isEmpty
+                                  ? '—'
+                                  : order.itemSummary,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ),
+                        DataCell(
+                          TavolaStatusBadge(
+                            label: _statusLabel(order.status),
+                            color: _statusColor(order.status),
+                          ),
+                        ),
+                        DataCell(
+                          Text(
+                            AppFormatters.currency.format(
+                              order.totalAmount / 100,
+                            ),
+                          ),
+                        ),
+                        DataCell(
+                          Text(AppFormatters.time.format(order.createdAt)),
+                        ),
+                      ],
                     ),
-                  ),
-                  DataCell(Text('₹946')),
-                  DataCell(Text('2:14 PM')),
-                ],
-              ),
-              DataRow(
-                cells: [
-                  DataCell(Text('#ORD-1041')),
-                  DataCell(Text('Table 2')),
-                  DataCell(Text('Butter Chicken, Naan ×3')),
-                  DataCell(
-                    TavolaStatusBadge(
-                      label: 'Preparing',
-                      color: TavolaColors.accentDark,
-                    ),
-                  ),
-                  DataCell(Text('₹1,240')),
-                  DataCell(Text('2:09 PM')),
-                ],
-              ),
-              DataRow(
-                cells: [
-                  DataCell(Text('#ORD-1040')),
-                  DataCell(Text('Takeaway')),
-                  DataCell(Text('Cold Coffee ×2')),
-                  DataCell(
-                    TavolaStatusBadge(label: 'Ready', color: TavolaColors.info),
-                  ),
-                  DataCell(Text('₹260')),
-                  DataCell(Text('1:58 PM')),
-                ],
-              ),
-            ],
+                  )
+                  .toList(),
+            ),
           ),
-        ),
       ],
     ),
   );
 }
+
+String _orderType(String type) => switch (type) {
+  'takeaway' => 'Takeaway',
+  'delivery' => 'Delivery',
+  _ => 'Dine-in',
+};
+String _statusLabel(String status) => status
+    .replaceAll('_', ' ')
+    .split(' ')
+    .map(
+      (word) =>
+          word.isEmpty ? word : '${word[0].toUpperCase()}${word.substring(1)}',
+    )
+    .join(' ');
+Color _statusColor(String status) => switch (status) {
+  'ready' => TavolaColors.info,
+  'cancelled' => TavolaColors.error,
+  'paid' => TavolaColors.success,
+  _ => TavolaColors.accentDark,
+};

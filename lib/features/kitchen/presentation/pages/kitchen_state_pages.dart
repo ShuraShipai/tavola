@@ -6,7 +6,8 @@ import '../../../../core/widgets/tavola_app_shell.dart';
 import '../../../../core/widgets/tavola_ui_components.dart';
 
 class KitchenOrderDetailPage extends StatelessWidget {
-  const KitchenOrderDetailPage({super.key});
+  const KitchenOrderDetailPage({super.key, required this.ticketId});
+  final String ticketId;
   @override
   Widget build(BuildContext context) => TavolaAppShell(
     activeRoute: '/kitchen',
@@ -79,7 +80,8 @@ class KitchenOrderDetailPage extends StatelessWidget {
 }
 
 class KitchenTicketPreviewPage extends StatelessWidget {
-  const KitchenTicketPreviewPage({super.key});
+  const KitchenTicketPreviewPage({super.key, required this.ticketId});
+  final String ticketId;
   @override
   Widget build(BuildContext context) => TavolaAppShell(
     activeRoute: '/kitchen',

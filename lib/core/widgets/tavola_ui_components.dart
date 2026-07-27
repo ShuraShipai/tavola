@@ -88,6 +88,7 @@ class TavolaPageHeader extends StatelessWidget {
     required this.subtitle,
     this.actionLabel,
     this.actionIcon,
+    this.onAction,
     super.key,
   });
 
@@ -95,6 +96,7 @@ class TavolaPageHeader extends StatelessWidget {
   final String subtitle;
   final String? actionLabel;
   final IconData? actionIcon;
+  final VoidCallback? onAction;
 
   @override
   Widget build(BuildContext context) => Row(
@@ -112,7 +114,7 @@ class TavolaPageHeader extends StatelessWidget {
       ),
       if (actionLabel != null)
         FilledButton.icon(
-          onPressed: () {},
+          onPressed: onAction,
           icon: Icon(actionIcon ?? Icons.add_rounded),
           label: Text(actionLabel!),
         ),

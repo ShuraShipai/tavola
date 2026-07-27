@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/design/tavola_tokens.dart';
 import '../../../../core/widgets/tavola_app_shell.dart';
 import '../../../../core/widgets/tavola_ui_components.dart';
+import '../../../auth/presentation/providers/auth_providers.dart';
 
 class SettingsPage extends StatelessWidget {
   const SettingsPage({super.key});
@@ -146,21 +148,101 @@ class AppSettingsPage extends StatelessWidget {
   );
 }
 
-class MyProfilePage extends StatelessWidget {
+class MyProfilePage extends ConsumerStatefulWidget {
   const MyProfilePage({super.key});
+
   @override
-  Widget build(BuildContext context) => const _Form(
-    title: 'My Profile',
-    subtitle: 'Personal information and account preferences',
-    fields: [
-      'First name',
-      'Last name',
-      'Email',
-      'Phone',
-      'Language',
-      'Timezone',
-    ],
-  );
+  ConsumerState<MyProfilePage> createState() => _MyProfilePageState();
+}
+
+class _MyProfilePageState extends ConsumerState<MyProfilePage> {
+  final _formKey = GlobalKey<FormState>();
+  final _fullName = TextEditingController();
+  final _phone = TextEditingController();
+  bool _initialized = false;
+
+  @override
+  void dispose() {
+    _fullName.dispose();
+    _phone.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final user = ref.watch(authUserProvider).dataOrNull;
+    final authState = ref.watch(authControllerProvider);
+    if (!_initialized && user != null) {
+      _fullName.text = user.fullName ?? '';
+      _phone.text = user.phone ?? '';
+      _initialized = true;
+    }
+
+    return _Shell(
+      title: 'My Profile',
+      subtitle: 'Personal information and account preferences',
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 820),
+        child: TavolaPanel(
+          child: Form(
+            key: _formKey,
+            child: Column(
+              children: [
+                TextFormField(
+                  controller: _fullName,
+                  decoration: const InputDecoration(labelText: 'Full name'),
+                  validator: (value) => value == null || value.trim().isEmpty
+                      ? 'Enter your name'
+                      : null,
+                ),
+                const SizedBox(height: 14),
+                TextFormField(
+                  initialValue: user?.email ?? '',
+                  readOnly: true,
+                  decoration: const InputDecoration(labelText: 'Email'),
+                ),
+                const SizedBox(height: 14),
+                TextFormField(
+                  controller: _phone,
+                  keyboardType: TextInputType.phone,
+                  decoration: const InputDecoration(labelText: 'Phone'),
+                ),
+                const SizedBox(height: 20),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: FilledButton(
+                    onPressed: authState.isLoading || user == null
+                        ? null
+                        : () async {
+                            if (!_formKey.currentState!.validate()) return;
+                            await ref
+                                .read(authControllerProvider.notifier)
+                                .updateProfile(
+                                  fullName: _fullName.text,
+                                  phone: _phone.text,
+                                );
+                            if (!context.mounted) return;
+                            final result = ref.read(authControllerProvider);
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  result.hasError
+                                      ? 'Could not save your profile. Try again.'
+                                      : 'Profile saved.',
+                                ),
+                              ),
+                            );
+                          },
+                    child: const Text('Save Changes'),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class ChangePasswordPage extends StatelessWidget {

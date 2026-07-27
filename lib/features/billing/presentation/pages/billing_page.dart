@@ -1,204 +1,226 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/design/tavola_breakpoints.dart';
 import '../../../../core/design/tavola_colors.dart';
 import '../../../../core/design/tavola_tokens.dart';
+import '../../../../core/formatters/app_formatters.dart';
 import '../../../../core/widgets/tavola_app_shell.dart';
+import '../../../../core/widgets/tavola_states.dart';
 import '../../../../core/widgets/tavola_ui_components.dart';
+import '../../domain/entities/bill.dart';
+import '../providers/billing_providers.dart';
 
-class BillingPage extends StatelessWidget {
+class BillingPage extends ConsumerWidget {
   const BillingPage({super.key});
 
   @override
-  Widget build(BuildContext context) => TavolaAppShell(
+  Widget build(BuildContext context, WidgetRef ref) => TavolaAppShell(
     activeRoute: '/billing',
-    child: SingleChildScrollView(
-      padding: const EdgeInsets.all(TavolaSpace.lg),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const TavolaPageHeader(
-            title: 'Create Bill',
-            subtitle: 'Table 5 · Order #ORD-1042 · 4 guests',
-            actionLabel: 'Unpaid Bills',
-            actionIcon: Icons.receipt_long_outlined,
+    child: ref
+        .watch(billsProvider)
+        .when(
+          loading: () => const TavolaLoadingIndicator(label: 'Loading bills…'),
+          error: (error, _) => TavolaErrorState(
+            message: 'Could not load bills: $error',
+            onRetry: () => ref.invalidate(billsProvider),
           ),
-          const SizedBox(height: TavolaSpace.lg),
-          LayoutBuilder(
-            builder: (context, constraints) =>
-                constraints.maxWidth >= TavolaBreakpoints.medium
-                ? const Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(flex: 3, child: _BillItems()),
-                      SizedBox(width: TavolaSpace.md),
-                      Expanded(flex: 2, child: _BillSummary()),
-                    ],
-                  )
-                : const Column(
-                    children: [
-                      _BillItems(),
-                      SizedBox(height: TavolaSpace.md),
-                      _BillSummary(),
-                    ],
+          data: (bills) {
+            if (bills.isEmpty) {
+              return const TavolaEmptyState(
+                title: 'No bills to settle',
+                message:
+                    'Served orders will appear here when they are ready for payment.',
+              );
+            }
+            final bill = bills.firstWhere(
+              (value) => value.status != BillStatus.paid,
+              orElse: () => bills.first,
+            );
+            return SingleChildScrollView(
+              padding: const EdgeInsets.all(TavolaSpace.lg),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  TavolaPageHeader(
+                    title: bill.status == BillStatus.paid
+                        ? 'Paid bill'
+                        : 'Create bill',
+                    subtitle: 'Order #${bill.orderNumber}',
+                    actionLabel:
+                        '${bills.where((item) => item.amountDue > 0).length} unpaid bills',
+                    actionIcon: Icons.receipt_long_outlined,
                   ),
-          ),
-        ],
-      ),
-    ),
+                  const SizedBox(height: TavolaSpace.lg),
+                  LayoutBuilder(
+                    builder: (context, constraints) =>
+                        constraints.maxWidth >= TavolaBreakpoints.medium
+                        ? Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(flex: 3, child: _BillItems(bill: bill)),
+                              const SizedBox(width: TavolaSpace.md),
+                              Expanded(
+                                flex: 2,
+                                child: _BillSummary(bill: bill),
+                              ),
+                            ],
+                          )
+                        : Column(
+                            children: [
+                              _BillItems(bill: bill),
+                              const SizedBox(height: TavolaSpace.md),
+                              _BillSummary(bill: bill),
+                            ],
+                          ),
+                  ),
+                ],
+              ),
+            );
+          },
+        ),
   );
 }
 
 class _BillItems extends StatelessWidget {
-  const _BillItems();
+  const _BillItems({required this.bill});
+  final Bill bill;
   @override
   Widget build(BuildContext context) => TavolaPanel(
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            const Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Order items',
-                    style: TextStyle(fontWeight: FontWeight.w600),
-                  ),
-                  SizedBox(height: 2),
-                  Text(
-                    'Review items before generating the bill',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: TavolaColors.textMuted,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            OutlinedButton(onPressed: () {}, child: const Text('Edit Order')),
-          ],
+        const Text(
+          'Order items',
+          style: TextStyle(fontWeight: FontWeight.w600),
+        ),
+        const SizedBox(height: TavolaSpace.xs),
+        const Text(
+          'Immutable item and price snapshots from the order.',
+          style: TextStyle(fontSize: 12, color: TavolaColors.textMuted),
         ),
         const SizedBox(height: TavolaSpace.md),
-        const _Line('Margherita Pizza × 1', 'Extra cheese', '₹340.00'),
-        const _Line('Cold Coffee × 2', 'No sugar', '₹260.00'),
-        const _Line('Paneer Tikka × 1', '—', '₹260.00'),
-        const SizedBox(height: TavolaSpace.lg),
-        Row(
-          children: [
-            const Expanded(
-              child: TextField(
-                enabled: false,
-                decoration: InputDecoration(
-                  hintText: 'Coupon or discount code',
+        for (final line in bill.lines)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: TavolaSpace.sm),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '${line.name} × ${line.quantity}',
+                        style: const TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                      if (line.notes?.isNotEmpty ?? false)
+                        Text(
+                          line.notes!,
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: TavolaColors.textMuted,
+                          ),
+                        ),
+                    ],
+                  ),
                 ),
-              ),
+                Text(
+                  AppFormatters.currency.format(line.lineTotalAmount / 100),
+                  style: const TextStyle(fontWeight: FontWeight.w700),
+                ),
+              ],
             ),
-            const SizedBox(width: TavolaSpace.sm),
-            OutlinedButton(onPressed: () {}, child: const Text('Apply')),
-          ],
-        ),
+          ),
       ],
     ),
   );
 }
 
-class _Line extends StatelessWidget {
-  const _Line(this.name, this.detail, this.amount);
-  final String name, detail, amount;
+class _BillSummary extends ConsumerWidget {
+  const _BillSummary({required this.bill});
+  final Bill bill;
   @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: TavolaSpace.sm),
-    child: Row(
-      children: [
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+  Widget build(BuildContext context, WidgetRef ref) {
+    final mutation = ref.watch(billingMutationProvider);
+    final settled = bill.amountDue == 0;
+    return TavolaPanel(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
             children: [
-              Text(name, style: const TextStyle(fontWeight: FontWeight.w600)),
-              Text(
-                detail,
-                style: const TextStyle(
-                  fontSize: 11,
-                  color: TavolaColors.textMuted,
+              const Expanded(
+                child: Text(
+                  'Bill summary',
+                  style: TextStyle(fontWeight: FontWeight.w600),
                 ),
+              ),
+              TavolaStatusBadge(
+                label: settled ? 'Paid' : bill.status.name,
+                color: settled ? TavolaColors.success : TavolaColors.warning,
               ),
             ],
           ),
-        ),
-        Text(amount, style: const TextStyle(fontWeight: FontWeight.w700)),
-      ],
-    ),
-  );
-}
-
-class _BillSummary extends StatelessWidget {
-  const _BillSummary();
-  @override
-  Widget build(BuildContext context) => TavolaPanel(
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Row(
-          children: [
-            Expanded(
-              child: Text(
-                'Bill summary',
-                style: TextStyle(fontWeight: FontWeight.w600),
+          const SizedBox(height: TavolaSpace.md),
+          _Amount(
+            'Order total',
+            AppFormatters.currency.format(bill.totalAmount / 100),
+          ),
+          _Amount('Paid', AppFormatters.currency.format(bill.paidAmount / 100)),
+          const Divider(),
+          _Amount(
+            'Amount due',
+            AppFormatters.currency.format(bill.amountDue / 100),
+            bold: true,
+          ),
+          const SizedBox(height: TavolaSpace.lg),
+          if (!settled) ...[
+            SizedBox(
+              width: double.infinity,
+              child: PopupMenuButton<PaymentMethod>(
+                enabled: !mutation.isLoading,
+                onSelected: (method) => ref
+                    .read(billingMutationProvider.notifier)
+                    .collect(bill: bill, method: method),
+                itemBuilder: (_) => PaymentMethod.values
+                    .map(
+                      (method) => PopupMenuItem(
+                        value: method,
+                        child: Text('Collect via ${method.label}'),
+                      ),
+                    )
+                    .toList(),
+                child: FilledButton.icon(
+                  onPressed: null,
+                  icon: mutation.isLoading
+                      ? const SizedBox.square(
+                          dimension: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.payments_outlined),
+                  label: Text(
+                    mutation.isLoading ? 'Processing…' : 'Collect payment',
+                  ),
+                ),
               ),
             ),
-            TavolaStatusBadge(
-              label: '#INV-2048',
-              color: TavolaColors.textSecondary,
+            if (mutation.hasError)
+              Padding(
+                padding: const EdgeInsets.only(top: TavolaSpace.sm),
+                child: Text(
+                  'Payment failed: ${mutation.error}',
+                  style: const TextStyle(color: TavolaColors.error),
+                ),
+              ),
+          ] else
+            const Text(
+              'This bill is fully settled. Receipt and refund actions will be added with the invoice workflow.',
+              style: TextStyle(fontSize: 12, color: TavolaColors.textMuted),
             ),
-          ],
-        ),
-        const SizedBox(height: TavolaSpace.md),
-        const _Amount('Subtotal', '₹860.00'),
-        const _Amount('Discount', '− ₹50.00'),
-        const _Amount('CGST (2.5%)', '₹20.25'),
-        const _Amount('SGST (2.5%)', '₹20.25'),
-        const _Amount('Service charge', '₹40.50'),
-        const Divider(),
-        const _Amount('Amount due', '₹891.00', bold: true),
-        const SizedBox(height: TavolaSpace.md),
-        const Text(
-          'Customer',
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
-            color: TavolaColors.textSecondary,
-          ),
-        ),
-        const SizedBox(height: TavolaSpace.xs),
-        const TextField(
-          enabled: false,
-          decoration: InputDecoration(
-            hintText: 'Arjun Mehta · +91 98765 43210',
-          ),
-        ),
-        const SizedBox(height: TavolaSpace.lg),
-        SizedBox(
-          width: double.infinity,
-          child: OutlinedButton(
-            onPressed: () {},
-            child: const Text('Split Bill'),
-          ),
-        ),
-        const SizedBox(height: TavolaSpace.xs),
-        SizedBox(
-          width: double.infinity,
-          child: FilledButton(
-            onPressed: () {},
-            child: const Text('Proceed to Payment'),
-          ),
-        ),
-        TextButton(onPressed: () {}, child: const Text('Preview Bill')),
-        TextButton(onPressed: () {}, child: const Text('Save as Unpaid')),
-      ],
-    ),
-  );
+        ],
+      ),
+    );
+  }
 }
 
 class _Amount extends StatelessWidget {

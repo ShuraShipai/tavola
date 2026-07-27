@@ -42,22 +42,19 @@ final tavolaRouterProvider = Provider<GoRouter>((ref) {
     redirect: (context, state) {
       final auth = ref.read(authUserProvider);
       final membership = ref.read(currentMembershipProvider);
-      final location = state.matchedLocation;
-      const authRoutes = {
-        AppRoutes.splash,
-        AppRoutes.welcome,
-        AppRoutes.login,
-        AppRoutes.forgotPassword,
-        AppRoutes.registerRestaurant,
-        AppRoutes.joinRestaurant,
-        AppRoutes.staffPin,
-      };
-      final isAuthRoute = authRoutes.contains(location);
+      final location = state.uri.path;
+      final isAuthRoute = AppRoutes.unauthenticatedRoutes.contains(location);
 
       if (auth.isLoading) {
         return location == AppRoutes.splash ? null : AppRoutes.splash;
       }
-      if (auth.dataOrNull == null) {
+
+      // A transient auth or membership failure must not be interpreted as a
+      // signed-out/no-membership state. Keeping the current location lets the
+      // screen surface its AsyncValue error and retry affordance.
+      if (auth.hasError) return null;
+
+      if (!auth.hasValue || auth.requireValue == null) {
         return isAuthRoute && location != AppRoutes.splash
             ? null
             : AppRoutes.welcome;
@@ -65,13 +62,15 @@ final tavolaRouterProvider = Provider<GoRouter>((ref) {
       if (membership.isLoading) {
         return location == AppRoutes.splash ? null : AppRoutes.splash;
       }
-      if (membership.dataOrNull == null) {
-        return location == AppRoutes.registerRestaurant
+      if (membership.hasError) return null;
+
+      if (!membership.hasValue || membership.requireValue == null) {
+        return AppRoutes.membershipSetupRoutes.contains(location)
             ? null
             : AppRoutes.registerRestaurant;
       }
       if (isAuthRoute) return AppRoutes.dashboard;
-      if (!_canAccess(membership.dataOrNull!.role, location)) {
+      if (!_canAccess(membership.requireValue!.role, location)) {
         return AppRoutes.dashboard;
       }
       return null;
@@ -148,7 +147,7 @@ final tavolaRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const SettingsPage(),
       ),
       GoRoute(
-        path: '/support',
+        path: AppRoutes.support,
         name: 'support',
         builder: (context, state) => const SupportPage(),
       ),
@@ -198,19 +197,22 @@ final tavolaRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const CompletedOrdersPage(),
       ),
       GoRoute(
-        path: '/orders/detail',
+        path: '/orders/detail/:id',
         name: 'order-detail',
-        builder: (context, state) => const OrderDetailPage(),
+        builder: (context, state) =>
+            OrderDetailPage(orderId: state.pathParameters['id']!),
       ),
       GoRoute(
-        path: '/orders/edit',
+        path: '/orders/edit/:id',
         name: 'edit-order',
-        builder: (context, state) => const EditOrderPage(),
+        builder: (context, state) =>
+            EditOrderPage(orderId: state.pathParameters['id']!),
       ),
       GoRoute(
-        path: '/tables/detail',
+        path: '/tables/detail/:id',
         name: 'table-detail',
-        builder: (context, state) => const TableDetailPage(),
+        builder: (context, state) =>
+            TableDetailPage(tableId: state.pathParameters['id']!),
       ),
       GoRoute(
         path: '/tables/merge',
@@ -223,14 +225,16 @@ final tavolaRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const SplitTablePage(),
       ),
       GoRoute(
-        path: '/kitchen/detail',
+        path: '/kitchen/detail/:id',
         name: 'kitchen-detail',
-        builder: (context, state) => const KitchenOrderDetailPage(),
+        builder: (context, state) =>
+            KitchenOrderDetailPage(ticketId: state.pathParameters['id']!),
       ),
       GoRoute(
-        path: '/kitchen/ticket-preview',
+        path: '/kitchen/ticket-preview/:id',
         name: 'ticket-preview',
-        builder: (context, state) => const KitchenTicketPreviewPage(),
+        builder: (context, state) =>
+            KitchenTicketPreviewPage(ticketId: state.pathParameters['id']!),
       ),
       GoRoute(
         path: '/billing/split',
@@ -238,9 +242,10 @@ final tavolaRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const SplitBillPage(),
       ),
       GoRoute(
-        path: '/billing/payment',
+        path: '/billing/payment/:id',
         name: 'payment',
-        builder: (context, state) => const PaymentPage(),
+        builder: (context, state) =>
+            PaymentPage(invoiceId: state.pathParameters['id']!),
       ),
       GoRoute(
         path: '/billing/receipt',
@@ -263,9 +268,10 @@ final tavolaRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const RefundVoidPage(),
       ),
       GoRoute(
-        path: '/customers/profile',
+        path: '/customers/profile/:id',
         name: 'customer-profile',
-        builder: (context, state) => const CustomerProfilePage(),
+        builder: (context, state) =>
+            CustomerProfilePage(customerId: state.pathParameters['id']!),
       ),
       GoRoute(
         path: '/customers/add',
@@ -283,9 +289,10 @@ final tavolaRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const AddStaffPage(),
       ),
       GoRoute(
-        path: '/staff/edit',
+        path: '/staff/edit/:id',
         name: 'edit-staff',
-        builder: (context, state) => const EditStaffPage(),
+        builder: (context, state) =>
+            EditStaffPage(membershipId: state.pathParameters['id']),
       ),
       GoRoute(
         path: '/staff/roles',
@@ -356,13 +363,13 @@ class _RouterRefresh extends ChangeNotifier {
 
 bool _canAccess(TavolaRole role, String location) {
   if (role == TavolaRole.owner || role == TavolaRole.manager) return true;
-  const cashierBlocked = {
+  const cashierBlockedFamilies = {
     AppRoutes.staff,
     AppRoutes.branches,
     AppRoutes.inventory,
     AppRoutes.settings,
   };
-  const waiterAllowed = {
+  const waiterAllowedFamilies = {
     AppRoutes.dashboard,
     AppRoutes.orders,
     AppRoutes.tables,
@@ -370,14 +377,32 @@ bool _canAccess(TavolaRole role, String location) {
     AppRoutes.customers,
     AppRoutes.reservations,
   };
-  const kitchenAllowed = {AppRoutes.dashboard, AppRoutes.kitchen};
+  const kitchenAllowedFamilies = {AppRoutes.dashboard, AppRoutes.kitchen};
   return switch (role) {
-    TavolaRole.cashier => !cashierBlocked.contains(location),
-    TavolaRole.waiter => waiterAllowed.contains(location),
-    TavolaRole.kitchen => kitchenAllowed.contains(location),
+    TavolaRole.cashier => !_matchesAnyRouteFamily(
+      location,
+      cashierBlockedFamilies,
+    ),
+    TavolaRole.waiter => _matchesAnyRouteFamily(
+      location,
+      waiterAllowedFamilies,
+    ),
+    TavolaRole.kitchen => _matchesAnyRouteFamily(
+      location,
+      kitchenAllowedFamilies,
+    ),
     TavolaRole.owner || TavolaRole.manager => true,
   };
 }
+
+bool _matchesAnyRouteFamily(String location, Set<String> routeFamilies) =>
+    routeFamilies.any((route) => _isInRouteFamily(location, route));
+
+/// Matches an exact route or one of its children without treating similarly
+/// named routes (for example `/order`) as children of `/orders`.
+bool _isInRouteFamily(String location, String route) =>
+    location == route ||
+    (route != AppRoutes.dashboard && location.startsWith('$route/'));
 
 final _featureRoutes = _featureConfigs
     .where(

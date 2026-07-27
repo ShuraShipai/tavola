@@ -6,7 +6,8 @@ import '../../../../core/widgets/tavola_app_shell.dart';
 import '../../../../core/widgets/tavola_ui_components.dart';
 
 class TableDetailPage extends StatelessWidget {
-  const TableDetailPage({super.key});
+  const TableDetailPage({super.key, required this.tableId});
+  final String tableId;
   @override
   Widget build(BuildContext context) => _TableShell(
     title: 'Table 5',

@@ -18,7 +18,20 @@ The checked-in credentials are a Supabase publishable client key, not a
 service-role key. Database access still requires properly configured RLS
 policies.
 
-## Getting Started
+## Quality gate
+
+Run the same checks used by CI before opening a pull request:
+
+```bash
+dart format --output=none --set-exit-if-changed lib test
+flutter analyze
+flutter test
+```
+
+See [docs/release-checklist.md](docs/release-checklist.md) for Supabase,
+tenant-isolation, workflow, and release smoke checks.
+
+<!-- Legacy Flutter links retained below for reference. -->
 
 This project is a starting point for a Flutter application.
 

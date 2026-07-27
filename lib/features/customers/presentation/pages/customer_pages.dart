@@ -1,101 +1,160 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/design/tavola_tokens.dart';
 import '../../../../core/widgets/tavola_app_shell.dart';
+import '../../../../core/widgets/tavola_states.dart';
 import '../../../../core/widgets/tavola_ui_components.dart';
+import '../../domain/entities/customer.dart';
+import '../providers/customer_providers.dart';
 
-class CustomersPage extends StatelessWidget {
+class CustomersPage extends ConsumerWidget {
   const CustomersPage({super.key});
   @override
-  Widget build(BuildContext context) => _CustomerShell(
-    title: 'Customers',
-    subtitle: '1,248 customer profiles · 86 joined this month',
-    action: 'Add Customer',
-    child: Column(
+  Widget build(BuildContext context, WidgetRef ref) {
+    final customers = ref.watch(restaurantCustomersProvider);
+    return _CustomerShell(
+      title: 'Customers',
+      subtitle: customers.when(
+        data: (data) => '${data.length} customer profiles',
+        loading: () => 'Loading customer profiles…',
+        error: (_, _) => 'Unable to load customer profiles',
+      ),
+      action: 'Add Customer',
+      child: customers.when(
+        loading: () => const Padding(
+          padding: EdgeInsets.all(TavolaSpace.xl),
+          child: TavolaLoadingIndicator(label: 'Loading customers…'),
+        ),
+        error: (error, _) => TavolaErrorState(
+          message: 'We could not load your customer list.',
+          onRetry: () => ref.invalidate(restaurantCustomersProvider),
+        ),
+        data: (data) => data.isEmpty
+            ? const TavolaEmptyState(
+                title: 'No customers yet',
+                message: 'Customer profiles will appear here as you add them.',
+                icon: Icons.people_outline,
+              )
+            : _CustomerDashboard(customers: data),
+      ),
+    );
+  }
+}
+
+class _CustomerDashboard extends StatelessWidget {
+  const _CustomerDashboard({required this.customers});
+  final List<Customer> customers;
+
+  @override
+  Widget build(BuildContext context) {
+    final returning = customers
+        .where((customer) => customer.visitCount > 1)
+        .length;
+    final newlyAdded = customers
+        .where(
+          (customer) => customer.createdAt.isAfter(
+            DateTime.now().subtract(const Duration(days: 30)),
+          ),
+        )
+        .length;
+    return Column(
       children: [
         LayoutBuilder(
-          builder: (_, c) => GridView.count(
+          builder: (_, constraints) => GridView.count(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
-            crossAxisCount: c.maxWidth < 700 ? 2 : 4,
+            crossAxisCount: constraints.maxWidth < 700 ? 2 : 4,
             childAspectRatio: 2.3,
-            children: const [
+            children: [
               TavolaMetricCard(
                 label: 'Total customers',
-                value: '1,248',
+                value: '${customers.length}',
                 icon: Icons.people_outline,
                 tone: Colors.amber,
-                detail: '▲ 7.4% this month',
+                detail: '$newlyAdded joined this month',
               ),
               TavolaMetricCard(
                 label: 'Returning guests',
-                value: '68%',
+                value: '${_percent(returning, customers.length)}%',
                 icon: Icons.repeat,
                 tone: Colors.green,
-                detail: '▲ 3.1%',
+                detail: '$returning repeat guests',
               ),
               TavolaMetricCard(
-                label: 'Loyalty members',
-                value: '742',
-                icon: Icons.stars_outlined,
+                label: 'Total visits',
+                value:
+                    '${customers.fold<int>(0, (total, customer) => total + customer.visitCount)}',
+                icon: Icons.restaurant_outlined,
                 tone: Colors.blue,
-                detail: '59% of customers',
+                detail: 'Across all profiles',
               ),
               TavolaMetricCard(
-                label: 'Avg. lifetime spend',
-                value: '₹8.4k',
-                icon: Icons.payments_outlined,
+                label: 'Customer notes',
+                value:
+                    '${customers.where((customer) => (customer.notes ?? '').isNotEmpty).length}',
+                icon: Icons.notes_outlined,
                 tone: Colors.orange,
-                detail: '▲ ₹620',
+                detail: 'Dietary and service notes',
               ),
             ],
           ),
         ),
-        const SizedBox(height: 24),
-        const TavolaPanel(
-          child: _CustomerTable(
-            headers: [
-              'Customer',
-              'Phone',
-              'Visits',
-              'Last visit',
-              'Total spent',
-              'Loyalty',
-            ],
-            rows: [
-              [
-                'Arjun Mehta',
-                '+91 98765 43210',
-                '18',
-                'Today',
-                '₹12,460',
-                'Gold',
-              ],
-              [
-                'Sana Kapoor',
-                '+91 98111 28420',
-                '11',
-                '18 Jul',
-                '₹8,920',
-                'Silver',
-              ],
-              [
-                'Dev Malhotra',
-                '+91 98920 33441',
-                '4',
-                '15 Jul',
-                '₹3,180',
-                'Member',
-              ],
-            ],
-          ),
-        ),
+        const SizedBox(height: TavolaSpace.lg),
+        TavolaPanel(child: _LiveCustomerTable(customers: customers)),
       ],
+    );
+  }
+
+  int _percent(int part, int total) =>
+      total == 0 ? 0 : (part * 100 / total).round();
+}
+
+class _LiveCustomerTable extends StatelessWidget {
+  const _LiveCustomerTable({required this.customers});
+  final List<Customer> customers;
+
+  @override
+  Widget build(BuildContext context) => SingleChildScrollView(
+    scrollDirection: Axis.horizontal,
+    child: DataTable(
+      columns: const [
+        DataColumn(label: Text('Customer')),
+        DataColumn(label: Text('Phone')),
+        DataColumn(label: Text('Email')),
+        DataColumn(label: Text('Visits')),
+        DataColumn(label: Text('Joined')),
+        DataColumn(label: Text('Notes')),
+      ],
+      rows: customers
+          .map(
+            (customer) => DataRow(
+              cells: [
+                DataCell(
+                  Text(
+                    customer.fullName,
+                    style: const TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                ),
+                DataCell(Text(customer.phone ?? '—')),
+                DataCell(Text(customer.email ?? '—')),
+                DataCell(Text('${customer.visitCount}')),
+                DataCell(
+                  Text(
+                    '${customer.createdAt.day}/${customer.createdAt.month}/${customer.createdAt.year}',
+                  ),
+                ),
+                DataCell(Text((customer.notes ?? '').isEmpty ? '—' : 'Yes')),
+              ],
+            ),
+          )
+          .toList(growable: false),
     ),
   );
 }
 
 class CustomerProfilePage extends StatelessWidget {
-  const CustomerProfilePage({super.key});
+  const CustomerProfilePage({super.key, required this.customerId});
+  final String customerId;
   @override
   Widget build(BuildContext context) => _CustomerShell(
     title: 'Customer Profile',

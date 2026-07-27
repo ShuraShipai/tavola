@@ -6,6 +6,7 @@ import '../design/tavola_breakpoints.dart';
 import '../design/tavola_colors.dart';
 import '../design/tavola_tokens.dart';
 import '../../features/auth/presentation/providers/auth_providers.dart';
+import '../../features/auth/domain/entities/restaurant_membership.dart';
 
 class TavolaNavItem {
   const TavolaNavItem({
@@ -321,132 +322,189 @@ class _NavigationTile extends StatelessWidget {
   );
 }
 
-class _TopBar extends StatelessWidget {
+class _TopBar extends ConsumerWidget {
   const _TopBar({required this.showMenu});
 
   final bool showMenu;
 
   @override
-  Widget build(BuildContext context) => Container(
-    height: TavolaSize.topBarHeight,
-    padding: const EdgeInsets.symmetric(horizontal: TavolaSpace.lg),
-    decoration: BoxDecoration(
-      color: Theme.of(context).colorScheme.surface,
-      border: Border(
-        bottom: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
-      ),
-    ),
-    child: Row(
-      children: [
-        if (showMenu)
-          Builder(
-            builder: (context) => IconButton(
-              icon: const Icon(Icons.menu_rounded),
-              onPressed: () => Scaffold.of(context).openDrawer(),
-            ),
+  Widget build(BuildContext context, WidgetRef ref) {
+    final user = ref.watch(authUserProvider).dataOrNull;
+    final membership = ref.watch(currentMembershipProvider).dataOrNull;
+    final name = user?.fullName?.trim().isNotEmpty == true
+        ? user!.fullName!.trim()
+        : user?.email ?? 'Account';
+    final initials = name
+        .split(RegExp(r'\s+'))
+        .where((part) => part.isNotEmpty)
+        .take(2)
+        .map((part) => part[0].toUpperCase())
+        .join();
+
+    return Container(
+      height: TavolaSize.topBarHeight,
+      padding: const EdgeInsets.symmetric(horizontal: TavolaSpace.lg),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        border: Border(
+          bottom: BorderSide(
+            color: Theme.of(context).colorScheme.outlineVariant,
           ),
-        if (showMenu) const SizedBox(width: TavolaSpace.xs),
-        if (!showMenu)
-          const Expanded(
-            child: SizedBox(
-              width: 320,
-              child: TextField(
-                enabled: false,
-                decoration: InputDecoration(
-                  hintText: 'Search orders, tables, menu items…',
-                  prefixIcon: Icon(Icons.search_rounded),
+        ),
+      ),
+      child: Row(
+        children: [
+          if (showMenu)
+            Builder(
+              builder: (context) => IconButton(
+                icon: const Icon(Icons.menu_rounded),
+                onPressed: () => Scaffold.of(context).openDrawer(),
+              ),
+            ),
+          if (showMenu) const SizedBox(width: TavolaSpace.xs),
+          if (!showMenu)
+            const Expanded(
+              child: SizedBox(
+                width: 320,
+                child: TextField(
+                  enabled: false,
+                  decoration: InputDecoration(
+                    hintText: 'Search orders, tables, menu items…',
+                    prefixIcon: Icon(Icons.search_rounded),
+                  ),
                 ),
               ),
+            )
+          else
+            const Expanded(
+              child: Text(
+                'Tavola',
+                style: TextStyle(fontWeight: FontWeight.w700),
+              ),
             ),
-          )
-        else
-          const Expanded(
+          IconButton(
+            onPressed: () {},
+            icon: const Badge(child: Icon(Icons.notifications_none_rounded)),
+          ),
+          const SizedBox(width: TavolaSpace.sm),
+          CircleAvatar(
+            radius: 16,
+            backgroundColor: TavolaColors.primary,
             child: Text(
-              'Tavola',
-              style: TextStyle(fontWeight: FontWeight.w700),
+              initials.isEmpty ? '?' : initials,
+              style: const TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                color: Colors.white,
+              ),
             ),
           ),
-        IconButton(
-          onPressed: () {},
-          icon: const Badge(child: Icon(Icons.notifications_none_rounded)),
-        ),
-        const SizedBox(width: TavolaSpace.sm),
-        const CircleAvatar(
-          radius: 16,
-          backgroundColor: TavolaColors.primary,
-          child: Text(
-            'RS',
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w700,
-              color: Colors.white,
+          const SizedBox(width: TavolaSpace.xs),
+          if (!showMenu)
+            Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  name,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                Text(
+                  membership?.restaurantName ?? 'Your workspace',
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: TavolaColors.textMuted,
+                  ),
+                ),
+              ],
             ),
-          ),
-        ),
-        const SizedBox(width: TavolaSpace.xs),
-        if (!showMenu)
-          const Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Rahul Sharma',
-                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-              ),
-              Text(
-                'La Rosetta Café',
-                style: TextStyle(fontSize: 11, color: TavolaColors.textMuted),
-              ),
-            ],
-          ),
-      ],
-    ),
-  );
+        ],
+      ),
+    );
+  }
 }
 
-class _AccountSummary extends StatelessWidget {
+class _AccountSummary extends ConsumerWidget {
   const _AccountSummary();
 
   @override
-  Widget build(BuildContext context) => const Row(
-    children: [
-      CircleAvatar(
-        radius: 16,
-        backgroundColor: TavolaColors.darkSurfaceVariant,
-        child: Text(
-          'RS',
-          style: TextStyle(
-            fontSize: 10,
-            color: Colors.white,
-            fontWeight: FontWeight.w700,
+  Widget build(BuildContext context, WidgetRef ref) {
+    final user = ref.watch(authUserProvider).dataOrNull;
+    final membership = ref.watch(currentMembershipProvider).dataOrNull;
+    final name = user?.fullName?.trim().isNotEmpty == true
+        ? user!.fullName!
+        : user?.email ?? 'Account';
+    final initials = name
+        .split(RegExp(r'\s+'))
+        .where((part) => part.isNotEmpty)
+        .take(2)
+        .map((part) => part[0].toUpperCase())
+        .join();
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () async {
+          await ref.read(authControllerProvider.notifier).signOut();
+          if (context.mounted && ref.read(authControllerProvider).hasError) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Could not sign out. Try again.')),
+            );
+          }
+        },
+        borderRadius: TavolaRadius.medium,
+        child: Padding(
+          padding: const EdgeInsets.all(TavolaSpace.xs),
+          child: Row(
+            children: [
+              CircleAvatar(
+                radius: 16,
+                backgroundColor: TavolaColors.darkSurfaceVariant,
+                child: Text(
+                  initials.isEmpty ? '?' : initials,
+                  style: const TextStyle(
+                    fontSize: 10,
+                    color: Colors.white,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              const SizedBox(width: TavolaSpace.sm),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      name,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    Text(
+                      membership?.role.label ?? 'Account',
+                      style: const TextStyle(
+                        color: TavolaColors.textMuted,
+                        fontSize: 11,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(
+                Icons.logout_rounded,
+                size: TavolaSize.iconSmall,
+                color: TavolaColors.textMuted,
+              ),
+            ],
           ),
         ),
       ),
-      SizedBox(width: TavolaSpace.sm),
-      Expanded(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Rahul Sharma',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            Text(
-              'Owner',
-              style: TextStyle(color: TavolaColors.textMuted, fontSize: 11),
-            ),
-          ],
-        ),
-      ),
-      Icon(
-        Icons.logout_rounded,
-        size: TavolaSize.iconSmall,
-        color: TavolaColors.textMuted,
-      ),
-    ],
-  );
+    );
+  }
 }

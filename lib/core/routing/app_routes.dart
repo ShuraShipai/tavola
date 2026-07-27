@@ -20,6 +20,24 @@ abstract final class AppRoutes {
   static const registerRestaurant = '/auth/register-restaurant';
   static const joinRestaurant = '/auth/join-restaurant';
   static const staffPin = '/auth/staff-pin';
+  static const support = '/support';
+
+  /// Auth routes that are safe to show before a Supabase session exists.
+  static const unauthenticatedRoutes = {
+    splash,
+    welcome,
+    login,
+    forgotPassword,
+    registerRestaurant,
+    joinRestaurant,
+    staffPin,
+  };
+
+  /// Routes an authenticated person without a restaurant membership may use.
+  ///
+  /// Joining a restaurant is intentionally kept available here: redirecting a
+  /// newly invited employee to restaurant creation strands them in onboarding.
+  static const membershipSetupRoutes = {registerRestaurant, joinRestaurant};
 }
 
 abstract final class AppRouteName {

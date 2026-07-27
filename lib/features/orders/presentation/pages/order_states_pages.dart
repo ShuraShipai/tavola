@@ -7,7 +7,8 @@ import '../../../../core/widgets/tavola_ui_components.dart';
 
 /// Static handoff states for future order routes. Navigation is wired later.
 class OrderDetailPage extends StatelessWidget {
-  const OrderDetailPage({super.key});
+  const OrderDetailPage({super.key, required this.orderId});
+  final String orderId;
 
   @override
   Widget build(BuildContext context) => _OrderShell(
@@ -33,7 +34,8 @@ class OrderDetailPage extends StatelessWidget {
 }
 
 class EditOrderPage extends StatelessWidget {
-  const EditOrderPage({super.key});
+  const EditOrderPage({super.key, required this.orderId});
+  final String orderId;
   @override
   Widget build(BuildContext context) => _OrderShell(
     title: 'Edit Order #ORD-1042',

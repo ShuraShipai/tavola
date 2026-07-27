@@ -45,18 +45,60 @@ class AuthController extends AsyncNotifier<void> {
     required String email,
     required String password,
     required String fullName,
+    String? restaurantType,
+    String? phone,
   }) => _run(
     () => SignUp(_repository)(
       email: email,
       password: password,
       fullName: fullName,
+      restaurantType: restaurantType,
+      phone: phone,
     ),
   );
 
-  Future<void> createRestaurant({required String name}) => _run(() async {
-    await CreateRestaurant(_repository)(name: name, timezone: 'Asia/Kolkata');
+  Future<void> createRestaurant({
+    required String name,
+    String? restaurantType,
+    String? phone,
+  }) => _run(() async {
+    await CreateRestaurant(_repository)(
+      name: name,
+      timezone: 'Asia/Kolkata',
+      restaurantType: restaurantType,
+      phone: phone,
+    );
     ref.invalidate(currentMembershipProvider);
   });
+
+  Future<void> redeemRestaurantInvitation({
+    required String restaurantCode,
+    required String inviteCode,
+  }) => _run(() async {
+    await RedeemRestaurantInvitation(_repository)(
+      restaurantCode: restaurantCode,
+      inviteCode: inviteCode,
+    );
+    ref.invalidate(currentMembershipProvider);
+  });
+
+  Future<bool> verifyStaffPin({
+    required String restaurantId,
+    required String pin,
+  }) async {
+    state = const AsyncLoading();
+    try {
+      final valid = await _repository.verifyStaffPin(
+        restaurantId: restaurantId,
+        pin: pin,
+      );
+      state = const AsyncData(null);
+      return valid;
+    } catch (error, stackTrace) {
+      state = AsyncError(error, stackTrace);
+      return false;
+    }
+  }
 
   Future<void> sendPasswordReset(String email) =>
       _run(() => _repository.sendPasswordReset(email));
@@ -65,6 +107,9 @@ class AuthController extends AsyncNotifier<void> {
     await _repository.signOut();
     ref.invalidate(currentMembershipProvider);
   });
+
+  Future<void> updateProfile({required String fullName, String? phone}) =>
+      _run(() => UpdateProfile(_repository)(fullName: fullName, phone: phone));
 
   Future<void> _run(Future<void> Function() action) async {
     state = const AsyncLoading();

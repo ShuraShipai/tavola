@@ -33,7 +33,8 @@ class SplitBillPage extends StatelessWidget {
 }
 
 class PaymentPage extends StatelessWidget {
-  const PaymentPage({super.key});
+  const PaymentPage({super.key, required this.invoiceId});
+  final String invoiceId;
   @override
   Widget build(BuildContext context) => _BillingShell(
     title: 'Collect Payment',

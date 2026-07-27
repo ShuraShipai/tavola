@@ -1,150 +1,114 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/design/tavola_colors.dart';
 import '../../../../core/design/tavola_tokens.dart';
 import '../../../../core/widgets/tavola_app_shell.dart';
+import '../../../../core/widgets/tavola_states.dart';
 import '../../../../core/widgets/tavola_ui_components.dart';
+import '../../domain/entities/menu_entities.dart';
+import '../providers/menu_providers.dart';
 
-/// Static menu catalogue and item-editor composition from handoff screens 30–35.
-class MenuPage extends StatelessWidget {
+/// Tenant-scoped menu catalogue. Editing is introduced in a later workflow phase.
+class MenuPage extends ConsumerWidget {
   const MenuPage({super.key});
-
   @override
-  Widget build(BuildContext context) => TavolaAppShell(
+  Widget build(BuildContext context, WidgetRef ref) => TavolaAppShell(
     activeRoute: '/menu',
-    child: SingleChildScrollView(
+    child: Padding(
       padding: const EdgeInsets.all(TavolaSpace.lg),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const TavolaPageHeader(
-            title: 'Menu Management',
-            subtitle: 'Manage categories, items and availability',
-            actionLabel: 'Add Menu Item',
-          ),
-          const SizedBox(height: TavolaSpace.lg),
-          const Wrap(
-            spacing: TavolaSpace.xs,
-            runSpacing: TavolaSpace.xs,
-            children: [
-              _MenuTab('All items', true),
-              _MenuTab('Pizza'),
-              _MenuTab('Main Course'),
-              _MenuTab('Beverages'),
-              _MenuTab('Desserts'),
-            ],
-          ),
-          const SizedBox(height: TavolaSpace.md),
-          TavolaPanel(
-            child: Column(
-              children: [
-                Row(
-                  children: [
-                    const Expanded(
-                      child: TextField(
-                        decoration: InputDecoration(
-                          hintText: 'Search menu items',
-                          prefixIcon: Icon(Icons.search_rounded),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: TavolaSpace.sm),
-                    OutlinedButton.icon(
-                      onPressed: () {},
-                      icon: const Icon(Icons.tune_rounded),
-                      label: const Text('Filters'),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: TavolaSpace.lg),
-                LayoutBuilder(
-                  builder: (context, c) => GridView.count(
-                    crossAxisCount: c.maxWidth > 800
-                        ? 3
-                        : c.maxWidth > 520
-                        ? 2
-                        : 1,
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    crossAxisSpacing: TavolaSpace.md,
-                    mainAxisSpacing: TavolaSpace.md,
-                    childAspectRatio: 1.85,
-                    children: const [
-                      _MenuItem(
-                        'Margherita Pizza',
-                        'Pizza · Vegetarian',
-                        '₹340',
-                        true,
-                      ),
-                      _MenuItem(
-                        'Truffle Mushroom Pasta',
-                        'Main Course · Vegetarian',
-                        '₹420',
-                        true,
-                      ),
-                      _MenuItem(
-                        'Paneer Tikka',
-                        'Starters · Vegetarian',
-                        '₹260',
-                        true,
-                      ),
-                      _MenuItem('Cold Coffee', 'Beverages', '₹130', true),
-                      _MenuItem('Tiramisu', 'Desserts', '₹220', false),
-                      _MenuItem(
-                        'Grilled Salmon',
-                        'Main Course · Non-veg',
-                        '₹580',
-                        true,
-                      ),
-                    ],
-                  ),
-                ),
-              ],
+      child: ref
+          .watch(menuCatalogProvider)
+          .when(
+            loading: () => const TavolaLoadingIndicator(label: 'Loading menu…'),
+            error: (error, _) => TavolaErrorState(
+              message: 'Unable to load the menu.',
+              onRetry: () => ref.invalidate(menuCatalogProvider),
             ),
+            data: (catalog) => _MenuContent(catalog: catalog),
           ),
-          const SizedBox(height: TavolaSpace.lg),
-          TavolaPanel(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Add Menu Item',
-                  style: Theme.of(context).textTheme.titleLarge,
-                ),
-                const SizedBox(height: TavolaSpace.xxs),
-                const Text('Prepare the item details and availability state.'),
-                const SizedBox(height: TavolaSpace.md),
-                const _MenuForm(),
-                const SizedBox(height: TavolaSpace.md),
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: FilledButton(
-                    onPressed: () {},
-                    child: const Text('Save Item'),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
     ),
   );
 }
 
-class _MenuTab extends StatelessWidget {
-  const _MenuTab(this.label, [this.selected = false]);
-  final String label;
-  final bool selected;
+class _MenuContent extends StatelessWidget {
+  const _MenuContent({required this.catalog});
+  final MenuCatalog catalog;
   @override
-  Widget build(BuildContext context) =>
-      ChoiceChip(label: Text(label), selected: selected, onSelected: (_) {});
+  Widget build(BuildContext context) => SingleChildScrollView(
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const TavolaPageHeader(
+          title: 'Menu Management',
+          subtitle: 'Manage categories, items and availability',
+          actionLabel: 'Add Menu Item',
+        ),
+        const SizedBox(height: TavolaSpace.lg),
+        if (catalog.categories.isNotEmpty)
+          Wrap(
+            spacing: TavolaSpace.xs,
+            runSpacing: TavolaSpace.xs,
+            children: [
+              const ChoiceChip(label: Text('All items'), selected: true),
+              ...catalog.categories.map(
+                (category) => ChoiceChip(
+                  label: Text(category.name),
+                  selected: false,
+                  onSelected: (_) {},
+                ),
+              ),
+            ],
+          ),
+        const SizedBox(height: TavolaSpace.md),
+        if (catalog.items.isEmpty)
+          const TavolaEmptyState(
+            title: 'Your menu is empty',
+            message: 'Create categories and menu items to start taking orders.',
+            icon: Icons.restaurant_menu_outlined,
+          )
+        else
+          TavolaPanel(
+            child: LayoutBuilder(
+              builder: (context, box) => GridView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: catalog.items.length,
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: box.maxWidth > 800
+                      ? 3
+                      : box.maxWidth > 520
+                      ? 2
+                      : 1,
+                  crossAxisSpacing: TavolaSpace.md,
+                  mainAxisSpacing: TavolaSpace.md,
+                  childAspectRatio: 1.85,
+                ),
+                itemBuilder: (context, index) => _MenuItemCard(
+                  item: catalog.items[index],
+                  categoryName: _categoryName(
+                    catalog,
+                    catalog.items[index].categoryId,
+                  ),
+                ),
+              ),
+            ),
+          ),
+      ],
+    ),
+  );
+  String _categoryName(MenuCatalog catalog, String id) {
+    for (final category in catalog.categories) {
+      if (category.id == id) return category.name;
+    }
+    return 'Uncategorised';
+  }
 }
 
-class _MenuItem extends StatelessWidget {
-  const _MenuItem(this.name, this.detail, this.price, this.available);
-  final String name, detail, price;
-  final bool available;
+class _MenuItemCard extends StatelessWidget {
+  const _MenuItemCard({required this.item, required this.categoryName});
+  final MenuItem item;
+  final String categoryName;
   @override
   Widget build(BuildContext context) => DecoratedBox(
     decoration: BoxDecoration(
@@ -172,64 +136,30 @@ class _MenuItem extends StatelessWidget {
               ),
               const Spacer(),
               TavolaStatusBadge(
-                label: available ? 'Available' : 'Hidden',
-                color: available
+                label: item.isAvailable ? 'Available' : 'Hidden',
+                color: item.isAvailable
                     ? TavolaColors.success
                     : TavolaColors.textMuted,
               ),
             ],
           ),
           const Spacer(),
-          Text(name, style: const TextStyle(fontWeight: FontWeight.w700)),
+          Text(item.name, style: const TextStyle(fontWeight: FontWeight.w700)),
           const SizedBox(height: 3),
           Text(
-            detail,
+            '$categoryName${item.foodType == null ? '' : ' · ${item.foodType}'}',
             style: const TextStyle(
               color: TavolaColors.textSecondary,
               fontSize: 12,
             ),
           ),
           const SizedBox(height: 6),
-          Text(price, style: const TextStyle(fontWeight: FontWeight.w700)),
+          Text(
+            '₹${(item.priceMinor / 100).toStringAsFixed(0)}',
+            style: const TextStyle(fontWeight: FontWeight.w700),
+          ),
         ],
       ),
-    ),
-  );
-}
-
-class _MenuForm extends StatelessWidget {
-  const _MenuForm();
-  @override
-  Widget build(BuildContext context) => const Wrap(
-    spacing: TavolaSpace.md,
-    runSpacing: TavolaSpace.md,
-    children: [
-      _Field('Item name', 'e.g. Truffle Mushroom Pasta', 360),
-      _Field('Category', 'Main Course', 220),
-      _Field('Selling price', '₹ 0.00', 180),
-      _Field('Tax rate', 'GST 5%', 180),
-      _Field('Description', 'Ingredients and a short description', 360),
-    ],
-  );
-}
-
-class _Field extends StatelessWidget {
-  const _Field(this.label, this.hint, this.width);
-  final String label, hint;
-  final double width;
-  @override
-  Widget build(BuildContext context) => SizedBox(
-    width: width,
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
-        ),
-        const SizedBox(height: 6),
-        TextField(decoration: InputDecoration(hintText: hint)),
-      ],
     ),
   );
 }
