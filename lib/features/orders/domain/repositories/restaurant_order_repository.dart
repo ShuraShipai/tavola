@@ -5,12 +5,18 @@ abstract interface class RestaurantOrderRepository {
   Stream<List<RestaurantOrder>> watchOrders(String restaurantId);
 
   Future<RestaurantOrder> createOrder(CreateOrderInput input);
+  Future<RestaurantOrder> createHeldOrder(CreateOrderInput input);
   Future<RestaurantOrder> updateOrder(UpdateOrderInput input);
   Future<RestaurantOrder> transitionOrder({
     required String restaurantId,
     required String orderId,
     required RestaurantOrderStatus from,
     required RestaurantOrderStatus to,
+  });
+  Future<RestaurantOrder> cancelOrder({
+    required String restaurantId,
+    required String orderId,
+    required String reason,
   });
 }
 

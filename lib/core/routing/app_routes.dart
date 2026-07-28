@@ -1,6 +1,8 @@
 abstract final class AppRoutes {
   static const dashboard = '/';
   static const orders = '/orders';
+  static const ordersNew = '/orders/new';
+  static const ordersDelivery = '/orders/delivery';
   static const tables = '/tables';
   static const tableNew = '/tables/new';
   static const kitchen = '/kitchen';
@@ -47,6 +49,8 @@ abstract final class AppRoutes {
 abstract final class AppRouteName {
   static const dashboard = 'dashboard';
   static const orders = 'orders';
+  static const ordersNew = 'orders-new';
+  static const ordersDelivery = 'orders-delivery';
   static const tables = 'tables';
   static const tableNew = 'table-new';
   static const kitchen = 'kitchen';

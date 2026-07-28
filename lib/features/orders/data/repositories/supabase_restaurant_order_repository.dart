@@ -80,6 +80,23 @@ class SupabaseRestaurantOrderRepository implements RestaurantOrderRepository {
   }
 
   @override
+  Future<RestaurantOrder> createHeldOrder(CreateOrderInput input) async {
+    final orderId =
+        await _client.rpc(
+              'create_held_order',
+              params: {
+                'p_restaurant_id': input.restaurantId,
+                'p_items': _itemsPayload(input.items),
+                'p_table_id': input.tableId,
+                'p_order_type': _snakeCase(input.orderType.name),
+                'p_notes': input.notes,
+              },
+            )
+            as String;
+    return _getOrder(orderId, input.restaurantId);
+  }
+
+  @override
   Future<RestaurantOrder> updateOrder(UpdateOrderInput input) async {
     final orderId =
         await _client.rpc(
@@ -111,6 +128,23 @@ class SupabaseRestaurantOrderRepository implements RestaurantOrderRepository {
         'p_order_id': orderId,
         'p_restaurant_id': restaurantId,
         'p_to_status': _snakeCase(to.name),
+      },
+    );
+    return _getOrder(orderId, restaurantId);
+  }
+
+  @override
+  Future<RestaurantOrder> cancelOrder({
+    required String restaurantId,
+    required String orderId,
+    required String reason,
+  }) async {
+    await _client.rpc(
+      'cancel_restaurant_order',
+      params: {
+        'p_order_id': orderId,
+        'p_restaurant_id': restaurantId,
+        'p_reason': reason,
       },
     );
     return _getOrder(orderId, restaurantId);

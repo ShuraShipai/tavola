@@ -20,6 +20,8 @@ import '../features/menu/presentation/pages/menu_page.dart';
 import '../features/menu/presentation/pages/menu_categories_page.dart';
 import '../features/menu/presentation/pages/menu_item_editor_page.dart';
 import '../features/orders/presentation/pages/orders_page.dart';
+import '../features/orders/presentation/pages/new_order_page.dart';
+import '../features/orders/presentation/pages/delivery_order_details_page.dart';
 import '../features/orders/presentation/pages/order_states_pages.dart';
 import '../features/reports/presentation/pages/reports_page.dart';
 import '../features/reservations/presentation/pages/reservations_page.dart';
@@ -92,6 +94,17 @@ final tavolaRouterProvider = Provider<GoRouter>((ref) {
         name: AppRouteName.orders,
         builder: (context, state) =>
             OrdersPage(initialTableId: state.uri.queryParameters['table']),
+      ),
+      GoRoute(
+        path: AppRoutes.ordersNew,
+        name: AppRouteName.ordersNew,
+        builder: (context, state) =>
+            NewOrderPage(initialTableId: state.uri.queryParameters['table']),
+      ),
+      GoRoute(
+        path: AppRoutes.ordersDelivery,
+        name: AppRouteName.ordersDelivery,
+        builder: (context, state) => const DeliveryOrderDetailsPage(),
       ),
       GoRoute(
         path: AppRoutes.tables,
