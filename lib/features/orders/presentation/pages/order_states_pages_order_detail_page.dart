@@ -41,7 +41,9 @@ class OrderDetailPage extends ConsumerWidget {
                   .firstOrNull,
               isUpdating: mutation.isLoading,
               mutationError: mutation.hasError ? mutation.error : null,
-              onEdit: order.status == RestaurantOrderStatus.open
+              onEdit:
+                  order.status == RestaurantOrderStatus.open ||
+                      order.status == RestaurantOrderStatus.draft
                   ? () => context.go('/orders/edit/${order.id}')
                   : null,
               onSend:

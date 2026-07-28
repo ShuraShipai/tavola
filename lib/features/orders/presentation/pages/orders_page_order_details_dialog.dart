@@ -50,7 +50,8 @@ class _OrderDetailsDialog extends ConsumerWidget {
         ),
       ),
       actions: [
-        if (order.status == RestaurantOrderStatus.open)
+        if (order.status == RestaurantOrderStatus.open ||
+            order.status == RestaurantOrderStatus.draft)
           TextButton(
             onPressed: mutation.isLoading
                 ? null
@@ -63,7 +64,8 @@ class _OrderDetailsDialog extends ConsumerWidget {
                   },
             child: const Text('Edit'),
           ),
-        if (order.status == RestaurantOrderStatus.open)
+        if (order.status == RestaurantOrderStatus.open ||
+            order.status == RestaurantOrderStatus.draft)
           FilledButton(
             onPressed: mutation.isLoading
                 ? null
