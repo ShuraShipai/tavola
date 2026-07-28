@@ -5,6 +5,64 @@ drop function if exists public.update_order(uuid, uuid, uuid, jsonb, uuid, uuid,
 
 alter table public.orders drop column if exists branch_id;
 
+-- Shared order-item replacement must exist before the order RPCs below.
+create or replace function public.replace_open_order_items(
+  p_order_id uuid,
+  p_items jsonb,
+  p_notes text default null
+)
+returns void
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+declare
+  v_actor_id uuid := auth.uid();
+  v_order public.orders%rowtype;
+  v_item jsonb;
+  v_menu_item public.menu_items%rowtype;
+  v_menu_item_id uuid;
+  v_quantity numeric(12, 3);
+  v_line_subtotal integer;
+  v_line_tax integer;
+  v_subtotal integer := 0;
+  v_tax integer := 0;
+begin
+  if v_actor_id is null then
+    raise exception 'Authentication is required' using errcode = '28000';
+  end if;
+  if jsonb_typeof(p_items) <> 'array' or jsonb_array_length(p_items) = 0 then
+    raise exception 'An order requires at least one item' using errcode = '22023';
+  end if;
+  select * into v_order from public.orders where id = p_order_id for update;
+  if not found then raise exception 'Order not found' using errcode = 'P0002'; end if;
+  if v_order.status not in ('draft', 'open') then
+    raise exception 'Only held or open orders can be edited' using errcode = '22023';
+  end if;
+  if not public.has_restaurant_role(v_order.restaurant_id, array['owner', 'manager', 'cashier', 'waiter']::public.app_role[]) then
+    raise exception 'You are not permitted to edit this order' using errcode = '42501';
+  end if;
+  delete from public.order_items where order_id = p_order_id;
+  for v_item in select value from jsonb_array_elements(p_items) loop
+    v_menu_item_id := (v_item ->> 'menu_item_id')::uuid;
+    v_quantity := (v_item ->> 'quantity')::numeric(12, 3);
+    if v_quantity <= 0 then raise exception 'Item quantity must be greater than zero' using errcode = '22023'; end if;
+    select * into v_menu_item from public.menu_items
+      where id = v_menu_item_id and restaurant_id = v_order.restaurant_id and is_active and is_available;
+    if not found then raise exception 'Selected menu item is unavailable' using errcode = '23503'; end if;
+    v_line_subtotal := round(v_menu_item.price_amount * v_quantity)::integer;
+    v_line_tax := round(v_line_subtotal * v_menu_item.tax_rate_basis_points / 10000.0)::integer;
+    v_subtotal := v_subtotal + v_line_subtotal;
+    v_tax := v_tax + v_line_tax;
+    insert into public.order_items (restaurant_id, order_id, menu_item_id, item_name, sku_snapshot, unit_price_amount, quantity, discount_amount, tax_amount, line_total_amount, modifiers, notes)
+    values (v_order.restaurant_id, v_order.id, v_menu_item.id, v_menu_item.name, v_menu_item.sku, v_menu_item.price_amount, v_quantity, 0, v_line_tax, v_line_subtotal + v_line_tax, coalesce(v_item -> 'modifiers', '[]'::jsonb), nullif(v_item ->> 'notes', ''));
+  end loop;
+  update public.orders set notes = coalesce(nullif(p_notes, ''), notes), subtotal_amount = v_subtotal,
+    discount_amount = 0, tax_amount = v_tax, service_charge_amount = 0, total_amount = v_subtotal + v_tax
+  where id = v_order.id;
+end;
+$$;
+
 create function public.create_order(
   p_restaurant_id uuid,
   p_items jsonb,
