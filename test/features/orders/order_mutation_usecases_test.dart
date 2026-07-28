@@ -33,6 +33,15 @@ void main() {
     );
     expect(repository.transitioned, isFalse);
   });
+
+  test('a held draft can be resumed and sent to the kitchen', () {
+    expect(
+      RestaurantOrderStatus.draft.canTransitionTo(
+        RestaurantOrderStatus.sentToKitchen,
+      ),
+      isTrue,
+    );
+  });
 }
 
 class _Repository implements RestaurantOrderRepository {
@@ -44,6 +53,10 @@ class _Repository implements RestaurantOrderRepository {
     created = true;
     throw UnimplementedError();
   }
+
+  @override
+  Future<RestaurantOrder> createHeldOrder(CreateOrderInput input) =>
+      throw UnimplementedError();
 
   @override
   Future<List<RestaurantOrder>> getOrders(String restaurantId) async =>
@@ -63,6 +76,13 @@ class _Repository implements RestaurantOrderRepository {
     transitioned = true;
     throw UnimplementedError();
   }
+
+  @override
+  Future<RestaurantOrder> cancelOrder({
+    required String restaurantId,
+    required String orderId,
+    required String reason,
+  }) => throw UnimplementedError();
 
   @override
   Future<RestaurantOrder> updateOrder(UpdateOrderInput input) =>

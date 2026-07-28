@@ -40,10 +40,13 @@ class OrderDetailPage extends ConsumerWidget {
                   .where((table) => table.id == order.tableId)
                   .firstOrNull,
               isUpdating: mutation.isLoading,
+              mutationError: mutation.hasError ? mutation.error : null,
               onEdit: order.status == RestaurantOrderStatus.open
                   ? () => context.go('/orders/edit/${order.id}')
                   : null,
-              onSend: order.status == RestaurantOrderStatus.open
+              onSend:
+                  order.status == RestaurantOrderStatus.open ||
+                      order.status == RestaurantOrderStatus.draft
                   ? () => ref
                         .read(orderMutationControllerProvider.notifier)
                         .transition(
@@ -70,6 +73,7 @@ class _LiveOrderDetails extends StatelessWidget {
     required this.order,
     required this.table,
     required this.isUpdating,
+    required this.mutationError,
     required this.onEdit,
     required this.onSend,
     required this.onCancel,
@@ -77,6 +81,7 @@ class _LiveOrderDetails extends StatelessWidget {
   final RestaurantOrder order;
   final DiningTable? table;
   final bool isUpdating;
+  final Object? mutationError;
   final VoidCallback? onEdit;
   final VoidCallback? onSend;
   final Future<void> Function(String reason)? onCancel;
@@ -205,6 +210,10 @@ class _LiveOrderDetails extends StatelessWidget {
               );
             },
           ),
+          if (mutationError != null) ...[
+            const SizedBox(height: TavolaSpace.md),
+            _OrderActionError(message: _actionErrorMessage(mutationError!)),
+          ],
           const SizedBox(height: TavolaSpace.lg),
           _LiveTimeline(order: order, placedAt: placedAt),
           const SizedBox(height: TavolaSpace.lg),
@@ -241,6 +250,46 @@ class _LiveOrderDetails extends StatelessWidget {
       ),
     );
   }
+}
+
+class _OrderActionError extends StatelessWidget {
+  const _OrderActionError({required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    width: double.infinity,
+    padding: const EdgeInsets.all(TavolaSpace.md),
+    decoration: BoxDecoration(
+      color: TavolaColors.errorLight,
+      borderRadius: TavolaRadius.medium,
+      border: Border.all(color: TavolaColors.error.withValues(alpha: .28)),
+    ),
+    child: Row(
+      children: [
+        const Icon(Icons.error_outline, color: TavolaColors.error),
+        const SizedBox(width: TavolaSpace.sm),
+        Expanded(
+          child: Text(
+            message,
+            style: Theme.of(
+              context,
+            ).textTheme.bodyMedium?.copyWith(color: TavolaColors.error),
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+String _actionErrorMessage(Object error) {
+  final detail = error.toString();
+  if (detail.contains('cancel_restaurant_order') ||
+      detail.contains('PGRST202')) {
+    return 'Cancellation is not available on this database yet. Apply the latest Tavola database migration, then try again.';
+  }
+  return 'The order could not be cancelled. $detail';
 }
 
 class _LiveTimeline extends StatelessWidget {

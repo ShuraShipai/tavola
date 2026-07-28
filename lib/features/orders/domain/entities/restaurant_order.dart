@@ -69,6 +69,7 @@ extension RestaurantOrderStatusX on RestaurantOrderStatus {
 
   bool canTransitionTo(RestaurantOrderStatus next) => switch ((this, next)) {
     (RestaurantOrderStatus.draft, RestaurantOrderStatus.open) ||
+    (RestaurantOrderStatus.draft, RestaurantOrderStatus.sentToKitchen) ||
     (RestaurantOrderStatus.draft, RestaurantOrderStatus.cancelled) ||
     (RestaurantOrderStatus.open, RestaurantOrderStatus.sentToKitchen) ||
     (RestaurantOrderStatus.open, RestaurantOrderStatus.cancelled) ||
