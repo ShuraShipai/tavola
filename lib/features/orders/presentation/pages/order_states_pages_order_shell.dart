@@ -18,50 +18,59 @@ class _OrderShell extends StatelessWidget {
     activeRoute: '/orders',
     child: SingleChildScrollView(
       padding: const EdgeInsets.all(TavolaSpace.lg),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Orders  ›  $title',
-            style: Theme.of(
-              context,
-            ).textTheme.bodySmall?.copyWith(color: TavolaColors.textMuted),
-          ),
-          const SizedBox(height: TavolaSpace.sm),
-          Wrap(
-            alignment: WrapAlignment.spaceBetween,
-            runSpacing: TavolaSpace.sm,
+      child: Align(
+        alignment: Alignment.topCenter,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 960),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              Text(
+                'Orders  ›  $title',
+                style: Theme.of(
+                  context,
+                ).textTheme.bodySmall?.copyWith(color: TavolaColors.textMuted),
+              ),
+              const SizedBox(height: TavolaSpace.sm),
+              Wrap(
+                alignment: WrapAlignment.spaceBetween,
+                runSpacing: TavolaSpace.sm,
                 children: [
-                  Wrap(
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    spacing: TavolaSpace.xs,
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        title,
-                        style: Theme.of(context).textTheme.headlineLarge,
+                      Wrap(
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        spacing: TavolaSpace.xs,
+                        children: [
+                          Text(
+                            title,
+                            style: Theme.of(context).textTheme.headlineLarge,
+                          ),
+                          // The current SDK does not parse null-aware list elements.
+                          // ignore: use_null_aware_elements
+                          if (badge case final activeBadge?) activeBadge,
+                        ],
                       ),
-                      // The current SDK does not parse null-aware list elements.
-                      // ignore: use_null_aware_elements
-                      if (badge case final activeBadge?) activeBadge,
+                      const SizedBox(height: TavolaSpace.xxs),
+                      Text(
+                        subtitle,
+                        style: Theme.of(context).textTheme.bodyMedium,
+                      ),
                     ],
                   ),
-                  const SizedBox(height: TavolaSpace.xxs),
-                  Text(subtitle, style: Theme.of(context).textTheme.bodyMedium),
+                  Wrap(
+                    spacing: TavolaSpace.xs,
+                    runSpacing: TavolaSpace.xs,
+                    children: actions.map((action) => action.build()).toList(),
+                  ),
                 ],
               ),
-              Wrap(
-                spacing: TavolaSpace.xs,
-                runSpacing: TavolaSpace.xs,
-                children: actions.map((action) => action.build()).toList(),
-              ),
+              const SizedBox(height: TavolaSpace.lg),
+              child,
             ],
           ),
-          const SizedBox(height: TavolaSpace.lg),
-          child,
-        ],
+        ),
       ),
     ),
   );
