@@ -63,7 +63,7 @@ begin
 end;
 $$;
 
-create function public.create_order(
+create or replace function public.create_order(
   p_restaurant_id uuid,
   p_items jsonb,
   p_table_id uuid default null,
@@ -91,7 +91,7 @@ begin
 end;
 $$;
 
-create function public.update_order(
+create or replace function public.update_order(
   p_order_id uuid,
   p_restaurant_id uuid,
   p_items jsonb,
