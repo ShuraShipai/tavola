@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../../core/design/tavola_breakpoints.dart';
 import '../../../../core/design/tavola_colors.dart';
@@ -35,15 +36,22 @@ class BillingPage extends ConsumerWidget {
                     'Served orders will appear here when they are ready for payment.',
               );
             }
-            final bill = orderId == null
+            final selectedBill = orderId == null
                 ? bills.firstWhere(
                     (value) => value.status != BillStatus.paid,
                     orElse: () => bills.first,
                   )
-                : bills.firstWhere(
-                    (value) => value.orderId == orderId,
-                    orElse: () => bills.first,
+                : bills.cast<Bill?>().firstWhere(
+                    (value) => value?.orderId == orderId,
+                    orElse: () => null,
                   );
+            if (selectedBill == null) {
+              return TavolaErrorState(
+                message: 'This order is not available for billing.',
+                onRetry: () => context.go('/billing'),
+              );
+            }
+            final bill = selectedBill;
             return SingleChildScrollView(
               padding: const EdgeInsets.all(TavolaSpace.lg),
               child: Column(
@@ -57,6 +65,7 @@ class BillingPage extends ConsumerWidget {
                     actionLabel:
                         '${bills.where((item) => item.amountDue > 0).length} unpaid bills',
                     actionIcon: Icons.receipt_long_outlined,
+                    onAction: () => context.go('/billing/reprint'),
                   ),
                   const SizedBox(height: TavolaSpace.lg),
                   LayoutBuilder(
@@ -184,30 +193,18 @@ class _BillSummary extends ConsumerWidget {
           if (!settled) ...[
             SizedBox(
               width: double.infinity,
-              child: PopupMenuButton<PaymentMethod>(
-                enabled: !mutation.isLoading,
-                onSelected: (method) => ref
-                    .read(billingMutationProvider.notifier)
-                    .collect(bill: bill, method: method),
-                itemBuilder: (_) => PaymentMethod.values
-                    .map(
-                      (method) => PopupMenuItem(
-                        value: method,
-                        child: Text('Collect via ${method.label}'),
-                      ),
-                    )
-                    .toList(),
-                child: FilledButton.icon(
-                  onPressed: null,
-                  icon: mutation.isLoading
-                      ? const SizedBox.square(
-                          dimension: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(Icons.payments_outlined),
-                  label: Text(
-                    mutation.isLoading ? 'Processing…' : 'Collect payment',
-                  ),
+              child: FilledButton.icon(
+                onPressed: mutation.isLoading
+                    ? null
+                    : () => context.go('/billing/payment/${bill.orderId}'),
+                icon: mutation.isLoading
+                    ? const SizedBox.square(
+                        dimension: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.payments_outlined),
+                label: Text(
+                  mutation.isLoading ? 'Processing…' : 'Collect payment',
                 ),
               ),
             ),
