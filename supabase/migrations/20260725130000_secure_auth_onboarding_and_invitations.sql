@@ -117,6 +117,12 @@ create index if not exists restaurant_invitations_active_lookup_idx
 
 alter table public.restaurant_invitations enable row level security;
 
+-- Existing projects may already have these policies from a partially applied
+-- bootstrap. Recreate them so this migration is safe to resume.
+drop policy if exists "invitations: managers read" on public.restaurant_invitations;
+drop policy if exists "invitations: managers create" on public.restaurant_invitations;
+drop policy if exists "invitations: managers revoke" on public.restaurant_invitations;
+
 create policy "invitations: managers read" on public.restaurant_invitations
   for select to authenticated
   using (public.has_restaurant_role(restaurant_id, array['owner', 'manager']::public.app_role[]));
