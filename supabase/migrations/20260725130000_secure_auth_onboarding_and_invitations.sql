@@ -74,7 +74,9 @@ volatile
 set search_path = public, pg_temp
 as $$
 begin
-  return 'TAV-' || upper(substr(encode(gen_random_bytes(5), 'hex'), 1, 8));
+  -- Use PostgreSQL built-ins instead of pgcrypto so this migration remains
+  -- safe on existing projects whose migration history predates the extension.
+  return 'TAV-' || upper(substr(md5(random()::text || clock_timestamp()::text || txid_current()::text), 1, 8));
 end;
 $$;
 
